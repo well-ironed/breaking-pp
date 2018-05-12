@@ -13,7 +13,7 @@ RUN wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb && \
 
 COPY . /breaking-pp
 
-RUN cd /breaking-pp && make prepare deps rel
+RUN cd /breaking-pp && make clean prepare deps rel
 
 CMD REPLACE_OS_VARS=true \
     /breaking-pp/_build/prod/rel/breaking_pp/bin/breaking_pp foreground
