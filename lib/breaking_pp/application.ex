@@ -10,7 +10,8 @@ defmodule BreakingPP.Application do
     children = [
       supervisor(Phoenix.PubSub.PG2, [BreakingPP.PubSub, []]),
       worker(BreakingPP.Tracker,
-        [[name: BreakingPP.Tracker, pubsub_server: BreakingPP.PubSub]])
+        [[name: BreakingPP.Tracker, pubsub_server: BreakingPP.PubSub]]),
+      worker(BreakingPP.Cluster, [])
     ]
 
     opts = [strategy: :one_for_one, name: BreakingPP.Supervisor]
@@ -20,6 +21,7 @@ defmodule BreakingPP.Application do
   defp start_endpoints do
     dispatch = :cowboy_router.compile([
       {:"_", [
+          {"/status", BreakingPP.StatusHandler, []},
           {"/sessions/:id", BreakingPP.SessionsHandler, []},
           {"/sessions", BreakingPP.SessionsListHandler, []}]}
     ])
