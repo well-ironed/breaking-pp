@@ -1,10 +1,13 @@
 defmodule BreakingPP.Cluster do
   use GenServer
 
+  @connect_interval 5_000
+  @nodes_env_var "BREAKING_PP_CLUSTER"
+
   def start_link, do: GenServer.start_link(__MODULE__, [], name: __MODULE__)
 
   def init([]) do
-    nodes = System.get_env("BREAKING_PP_CLUSTER") |> parse_nodes()
+    nodes = System.get_env(@nodes_env_var) |> parse_nodes()
     connect_nodes(nodes)
     schedule_connect()
     {:ok, nodes}
@@ -17,7 +20,7 @@ defmodule BreakingPP.Cluster do
   end
 
   defp schedule_connect do
-    Process.send_after(self(), :connect, 5_000)
+    Process.send_after(self(), :connect, @connect_interval)
   end
 
   defp connect_nodes(nodes) do
