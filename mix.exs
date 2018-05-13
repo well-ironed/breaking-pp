@@ -29,6 +29,7 @@ defmodule BreakingPp.MixProject do
       {:phoenix_pubsub, "~> 1.0"},
       {:distillery, "~> 1.5", runtime: false},
       {:httpoison, "~> 1.1", only: :test},
+      {:propcheck, "~> 1.0", only: :test},
       {:socket, "~> 0.3.13", only: :test}
     ]
   end

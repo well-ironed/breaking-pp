@@ -1,7 +1,10 @@
-.PHONY: clean deps docker prepare rel test
+.PHONY: clean clean-propcheck deps docker prepare rel test
 
 clean:
 	rm -rf _build
+
+clean-propcheck:
+	rm -rf _build/propcheck.ctex
 
 deps:
 	mix deps.get
