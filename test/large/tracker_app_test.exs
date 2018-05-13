@@ -1,5 +1,6 @@
 defmodule BreakingPP.Test.TrackerAppTest do
   use ExUnit.Case
+  import BreakingPP.Test.Eventually
   alias MapSet, as: S
 
   test "it returns empty list of sessions when no-one is connected" do
@@ -30,6 +31,11 @@ defmodule BreakingPP.Test.TrackerAppTest do
     assert eventually(fn -> sessions() == ["2"] end)
   end
 
+  test "it reports its own status" do
+    r = HTTPoison.get!("http://localhost:4000/status")
+    assert r.status_code == 200
+  end
+
   defp given_no_sessions do
     eventually(fn -> sessions() == [] end)
   end
@@ -39,20 +45,8 @@ defmodule BreakingPP.Test.TrackerAppTest do
     Poison.decode!(r.body)
   end
 
-
   defp given_session(id) do
     Socket.Web.connect!("localhost", 4000, path: "/sessions/#{id}")
   end
 
-  defp eventually(f, retries \\ 1000, sleep \\ 10)
-  defp eventually(_, 0, _), do: raise "retries exceeded"
-  defp eventually(f, retries, sleep) do
-    case f.() do
-      true ->
-        true
-      false -> 
-        Process.sleep(sleep)
-        eventually(f, retries-1, sleep)
-    end
-  end
 end
