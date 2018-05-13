@@ -19,7 +19,7 @@ function destroy_network {
 }
 
 function stop_cluster {
-    docker ps -a | grep ${PREFIX} | awk '{ print $1 }' | ${XARGS} docker rm -f
+    (docker ps -a | grep ${PREFIX} | awk '{ print $1 }' | ${XARGS} docker rm -f) || true
     destroy_network
 }
 
