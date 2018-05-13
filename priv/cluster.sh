@@ -5,7 +5,7 @@ set -e
 CMD=${1}
 NETWORK=breaking-pp-net
 PREFIX=breaking-pp
-XARGS="xargs --no-run-if-empty -n1 "
+XARGS="xargs -L1 "
 shift
 
 function create_network {
