@@ -33,6 +33,8 @@ defmodule BreakingPP.Test.ClusterPropTest do
     Cluster.session_disconnected(socket)
   end
 
+  def verify_eventual_consistency, do: :noop
+
   def command(%{nodes: []}) do
     {:call, __MODULE__, :start_cluster, [@cluster_size]}
   end
@@ -42,7 +44,8 @@ defmodule BreakingPP.Test.ClusterPropTest do
   def command(st) do
     oneof([
       {:call, __MODULE__, :connect_session, [cluster_node(st), session_id()]},
-      {:call, __MODULE__, :disconnect_session, disconnect_args(st)}
+      {:call, __MODULE__, :disconnect_session, disconnect_args(st)},
+      {:call, __MODULE__, :verify_eventual_consistency, []}
     ])
   end
 
@@ -59,6 +62,7 @@ defmodule BreakingPP.Test.ClusterPropTest do
     %{s | sessions: 
       Enum.reject(s.sessions, fn s -> s == {id, node, socket} end)}
   end
+  def next_state(s, _, _), do: s
 
   def precondition(s, {:call, __MODULE__, :disconnect_session, _}) do
     s.sessions != []
@@ -71,6 +75,16 @@ defmodule BreakingPP.Test.ClusterPropTest do
   def postcondition(_,
     {:call, __MODULE__, :disconnect_session, [node, id, _]}, _) do
     eventually(fn -> not Enum.member?(sessions_on_node(node), id) end)
+  end
+  def postcondition(st, 
+    {:call, __MODULE__, :verify_eventual_consistency, _}, _) do
+    eventually(fn ->
+      unique_sets_n = sessions_on_nodes(st)
+                    |> Enum.map(fn {_, sessions} -> sessions end)
+                    |> Enum.uniq
+                    |> Enum.count
+      unique_sets_n == 1
+    end)
   end
   def postcondition(_, _, _), do: true
 
