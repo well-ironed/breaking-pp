@@ -5,6 +5,7 @@ set -e
 CMD=${1}
 NETWORK=breaking-pp-net
 PREFIX=breaking-pp
+XARGS="xargs --no-run-if-empty -n1 "
 shift
 
 function create_network {
@@ -12,11 +13,13 @@ function create_network {
 }
 
 function destroy_network {
-    docker network rm ${NETWORK}
+    if (docker network ls | grep ${PREFIX}); then
+      docker network rm ${NETWORK}
+    fi
 }
 
 function stop_cluster {
-    docker ps -a | grep ${PREFIX} | awk '{ print $1 }' | xargs docker rm -f
+    docker ps -a | grep ${PREFIX} | awk '{ print $1 }' | ${XARGS} docker rm -f
     destroy_network
 }
 
