@@ -10,7 +10,7 @@ defmodule BreakingPP.Test.ClusterPropTest do
 
   @tag timeout: :infinity
   property "sessions are eventually consistent in a cluster of 3 nodes",
-    [:verbose, {:numtests, 100}, {:start_size, 10}, {:max_size, 1000}] do
+    [:verbose, {:numtests, 1000}, {:start_size, 10}, {:max_size, 1000}] do
       forall cmds in commands(__MODULE__) do
         {history, state, result} = run_commands(__MODULE__, cmds)
         (result == :ok)
@@ -19,15 +19,18 @@ defmodule BreakingPP.Test.ClusterPropTest do
           State: #{inspect state, pretty: true}
           Result: #{inspect result, pretty: true}
           Sessions on nodes: #{inspect sessions_on_nodes(state), pretty: true}
-          Netstat: #{System.cmd("netstat", ["-n"]) |> elem(0)}
           """)
       end
   end
 
   def start_cluster(size), do: Cluster.cluster_started(size)
-  def connect_session(node, id), do: Cluster.session_connected(node, id)
+
+  def connect_session(node, id) do
+    Cluster.session_connected(node_map(node), id)
+  end
+
   def disconnect_session(_node, _id, socket) do
-    :ok = Cluster.session_disconnected(socket)
+    Cluster.session_disconnected(socket)
   end
 
   def command(%{nodes: []}) do
@@ -46,7 +49,7 @@ defmodule BreakingPP.Test.ClusterPropTest do
   def initial_state, do: %{nodes: [], sessions: []}
 
   def next_state(s, _, {:call, __MODULE__, :start_cluster, [size]}) do
-    %{s | nodes: Enum.map(1..size, &node_map/1)}
+    %{s | nodes: Enum.into(1..size, [])}
   end
   def next_state(s, sckt, {:call, __MODULE__, :connect_session, [node, id]}) do
     %{s | sessions: [{id, node, sckt} | s.sessions]}
@@ -63,11 +66,11 @@ defmodule BreakingPP.Test.ClusterPropTest do
   def precondition(_, _), do: true
 
   def postcondition(_, {:call, __MODULE__, :connect_session, [node, id]}, _) do
-    eventually(fn -> Enum.member?(sessions(node), id) end)
+    eventually(fn -> Enum.member?(sessions_on_node(node), id) end)
   end
   def postcondition(_,
     {:call, __MODULE__, :disconnect_session, [node, id, _]}, _) do
-    eventually(fn -> not Enum.member?(sessions(node), id) end)
+    eventually(fn -> not Enum.member?(sessions_on_node(node), id) end)
   end
   def postcondition(_, _, _), do: true
 
@@ -82,7 +85,9 @@ defmodule BreakingPP.Test.ClusterPropTest do
   defp cluster_node(%{nodes: nodes}), do: oneof(nodes)
 
   defp sessions_on_nodes(%{nodes: nodes}) do
-    Enum.map(nodes, fn n -> {n, sessions(n)} end)
+    Enum.map(nodes, fn n -> {n, sessions_on_node(n)} end)
     |> Enum.into(%{})
   end
+
+  defp sessions_on_node(n), do: node_map(n) |> sessions()
 end

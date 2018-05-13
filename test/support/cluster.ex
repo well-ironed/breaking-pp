@@ -20,15 +20,18 @@ defmodule BreakingPP.Test.Cluster do
   end
 
   def node_map(i) do
-    %{host: "localhost", port: i*10_000 + 4_000}
+    {ip, 0} = cmd(["node_ip", "#{i}"])
+    %{host: String.trim(ip), port: 4000}
   end
 
   def session_connected(n, id) do
-    Socket.Web.connect!(n.host, n.port, path: "/sessions/#{id}")
+    s = Socket.Web.connect!(n.host, n.port, path: "/sessions/#{id}")
+    Socket.active(s.socket)
+    s 
   end
 
   def session_disconnected(socket) do
-    :ok = Socket.Web.close(socket)
+    Socket.Web.close(socket)
   end
 
   def sessions(n) do

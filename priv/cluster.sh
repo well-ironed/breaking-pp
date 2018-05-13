@@ -40,4 +40,11 @@ function start_node {
         breaking-pp
 }
 
+function node_ip {
+    N=${1}
+    docker inspect \
+        -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \
+        ${PREFIX}-${N}.local
+}
+
 ${CMD} ${@}
