@@ -5,7 +5,6 @@ defmodule BreakingPP.Test.ClusterPropTest do
   import BreakingPP.Test.Eventually
   import BreakingPP.Test.Cluster, only: [sessions: 1, node_map: 1]
   alias BreakingPP.Test.Cluster
-  alias MapSet, as: S
 
   @cluster_size 3
   @socket_table :sockets
@@ -21,7 +20,8 @@ defmodule BreakingPP.Test.ClusterPropTest do
           History: #{inspect history, pretty: true}
           State: #{inspect state, pretty: true}
           Result: #{inspect result, pretty: true}
-          Sessions on nodes: #{inspect sessions_on_nodes(state), pretty: true}
+          Sessions on nodes: #{inspect sessions_on_nodes(state.nodes),
+            pretty: true}
           """)
       end
   end
@@ -62,10 +62,8 @@ defmodule BreakingPP.Test.ClusterPropTest do
     %{s | sessions: s.sessions ++ sessions}
   end
   def next_state(s, _, {:call, __MODULE__, :disconnect_sessions, [sessions]}) do
-    sessions = S.difference(S.new(s.sessions), S.new(sessions)) |> Enum.to_list
-    %{s | sessions: sessions}
+    %{s | sessions: s.sessions -- sessions}
   end
-  def next_state(s, _, _), do: s
 
   def precondition(s, {:call, __MODULE__, :disconnect_sessions, _}) do
     s.sessions != []
@@ -74,26 +72,20 @@ defmodule BreakingPP.Test.ClusterPropTest do
 
   def postcondition(st, {:call, __MODULE__, :connect_sessions, [ss]}, _) do
     eventually(fn ->
-      Enum.all?(ss, fn {n, id} -> Enum.member?(sessions_on(n), id) end)
-      and
-      sessions_on_all_nodes_are_equal(st)
+      sessions_on_all_nodes_are_equal_to(st.sessions ++ ss, st.nodes)
     end)
   end
   def postcondition(st, {:call, __MODULE__, :disconnect_sessions, [ss]},_) do
     eventually(fn ->
-      Enum.all?(ss, fn {n, id} -> not Enum.member?(sessions_on(n), id) end)
-      and
-      sessions_on_all_nodes_are_equal(st)
+      sessions_on_all_nodes_are_equal_to(st.sessions -- ss, st.nodes)
     end)
   end
   def postcondition(_, _, _), do: true
 
-  defp sessions_on_all_nodes_are_equal(state) do
-    unique_sets_n = sessions_on_nodes(state)
-                    |> Enum.map(fn {_, sessions} -> sessions end)
-                    |> Enum.uniq
-                    |> Enum.count
-    unique_sets_n == 1
+  defp sessions_on_all_nodes_are_equal_to(sessions, nodes) do
+    expected_sessions = Enum.map(sessions, fn {_, id} -> id end) |> Enum.sort
+    Enum.all?(sessions_on_nodes(nodes),
+      fn {_, sessions} -> sessions == expected_sessions end)
   end
 
   defp new_sessions(st) do
@@ -112,9 +104,8 @@ defmodule BreakingPP.Test.ClusterPropTest do
 
   defp cluster_node(%{nodes: nodes}), do: oneof(nodes)
 
-  defp sessions_on_nodes(%{nodes: nodes}) do
-    Enum.map(nodes, fn n -> {n, sessions_on(n)} end)
-    |> Enum.into(%{})
+  defp sessions_on_nodes(nodes) do
+    Enum.map(nodes, fn n -> {n, sessions_on(n)} end) |> Enum.into(%{})
   end
 
   defp sessions_on(n), do: node_map(n) |> sessions()

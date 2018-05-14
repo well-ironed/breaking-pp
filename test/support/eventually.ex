@@ -1,7 +1,7 @@
 defmodule BreakingPP.Test.Eventually do
 
   def eventually(f, retries \\ 300, sleep \\ 100)
-  def eventually(_, 0, _), do: raise "retries exceeded"
+  def eventually(_, 0, _), do: false
   def eventually(f, retries, sleep) do
     case f.() do
       true ->
