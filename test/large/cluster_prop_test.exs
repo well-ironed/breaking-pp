@@ -28,11 +28,11 @@ defmodule BreakingPP.Test.ClusterPropTest do
 
   def start_cluster(size), do: Cluster.cluster_started(size)
 
-  def connect_sessions(sessions) do
-    sockets = Enum.map(sessions, fn {node, id} ->
+  def connect_sessions(nodes_sessions) do
+    sockets = Enum.map(nodes_sessions, fn {node, id} ->
       Cluster.session_connected(node_map(node), id)
     end)
-    store_sockets(sessions, sockets)
+    Enum.map(nodes_sessions, fn {_, s} -> s end) |> store_sockets(sockets)
   end
 
   def disconnect_sessions(sessions) do
@@ -44,11 +44,11 @@ defmodule BreakingPP.Test.ClusterPropTest do
     {:call, __MODULE__, :start_cluster, [@cluster_size]}
   end
   def command(%{sessions: []}=st) do
-    {:call, __MODULE__, :connect_sessions, [new_sessions(st)]}
+    {:call, __MODULE__, :connect_sessions, [nodes_sessions(st)]}
   end
   def command(st) do
     oneof([
-      {:call, __MODULE__, :connect_sessions, [new_sessions(st)]},
+      {:call, __MODULE__, :connect_sessions, [nodes_sessions(st)]},
       {:call, __MODULE__, :disconnect_sessions, [existing_sessions(st)]}
     ])
   end
@@ -58,7 +58,9 @@ defmodule BreakingPP.Test.ClusterPropTest do
   def next_state(s, _, {:call, __MODULE__, :start_cluster, [size]}) do
     %{s | nodes: Enum.into(1..size, [])}
   end
-  def next_state(s, _, {:call, __MODULE__, :connect_sessions, [sessions]}) do
+  def next_state(s, _,
+    {:call, __MODULE__, :connect_sessions, [nodes_sessions]}) do
+    sessions = Enum.map(nodes_sessions, fn {_, s} -> s end)
     %{s | sessions: s.sessions ++ sessions}
   end
   def next_state(s, _, {:call, __MODULE__, :disconnect_sessions, [sessions]}) do
@@ -70,9 +72,10 @@ defmodule BreakingPP.Test.ClusterPropTest do
   end
   def precondition(_, _), do: true
 
-  def postcondition(st, {:call, __MODULE__, :connect_sessions, [ss]}, _) do
+  def postcondition(st, {:call, __MODULE__, :connect_sessions, [ns_ss]}, _) do
     eventually(fn ->
-      sessions_on_all_nodes_are_equal_to(st.sessions ++ ss, st.nodes)
+      sessions = Enum.map(ns_ss, fn {_, s} -> s end)
+      sessions_on_all_nodes_are_equal_to(st.sessions ++ sessions, st.nodes)
     end)
   end
   def postcondition(st, {:call, __MODULE__, :disconnect_sessions, [ss]},_) do
@@ -83,12 +86,12 @@ defmodule BreakingPP.Test.ClusterPropTest do
   def postcondition(_, _, _), do: true
 
   defp sessions_on_all_nodes_are_equal_to(sessions, nodes) do
-    expected_sessions = Enum.map(sessions, fn {_, id} -> id end) |> Enum.sort
+    sorted_sessions = Enum.sort(sessions)
     Enum.all?(sessions_on_nodes(nodes),
-      fn {_, sessions} -> sessions == expected_sessions end)
+      fn {_, sessions_on_node} -> sessions_on_node == sorted_sessions end)
   end
 
-  defp new_sessions(st) do
+  defp nodes_sessions(st) do
     non_empty(list({cluster_node(st), session_id()}))
   end
 
@@ -120,11 +123,11 @@ defmodule BreakingPP.Test.ClusterPropTest do
 
   defp store_sockets(sessions, sockets) do
     Enum.zip(sessions, sockets)
-    |> Enum.map(fn {{_, i}, s} -> :ets.insert(@socket_table, {i, s}) end)
+    |> Enum.map(fn {s, skt} -> :ets.insert(@socket_table, {s, skt}) end)
   end
 
   defp take_sockets(sessions) do
-    Enum.map(sessions, fn {_, i} -> :ets.take(@socket_table, i) end)
+    Enum.map(sessions, fn s -> :ets.take(@socket_table, s) end)
     |> Enum.concat
   end
 end
