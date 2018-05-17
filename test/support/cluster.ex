@@ -4,19 +4,32 @@ defmodule BreakingPP.Test.Cluster do
   def cluster_started(size) do
     {_, 0} = cmd(["stop_cluster"])
     {_, 0} = cmd(["create_network"])
-    Enum.map(1..size, fn i -> start_node(i, size) end)
+    Enum.map(1..size, fn i -> create_node(i, size) end)
   end
 
-  def start_node(i, cluster_size) do
-    {_, 0} = cmd(["start_node", "#{i} #{cluster_size}"])
+  defp create_node(i, cluster_size) do
+    {_, 0} = cmd(["create_node", "#{i} #{cluster_size}"])
     n = node_map(i)
+    true = wait_for_node(n)
+    n
+  end
+
+  def node_started(i) do
+    {_, 0} = cmd(["start_node", "#{i}"])
+    true = node_map(i) |> wait_for_node()
+  end
+
+  def node_stopped(i) do
+    {_, 0} = cmd(["stop_node", "#{i}"])
+  end
+
+  defp wait_for_node(n) do
     eventually(fn ->
       case HTTPoison.get("http://#{n.host}:#{n.port}/status", []) do
         {:ok, r} -> r.status_code == 200
         _ -> false
       end
     end)
-    n
   end
 
   def node_map(i) do
@@ -34,7 +47,7 @@ defmodule BreakingPP.Test.Cluster do
     Socket.Web.close(socket)
   end
 
-  def sessions(n) do
+  def session_ids(n) do
     r = HTTPoison.get!("http://#{n.host}:#{n.port}/sessions")
     Poison.decode!(r.body) |> Enum.sort
   end
