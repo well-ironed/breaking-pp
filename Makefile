@@ -16,6 +16,9 @@ prepare:
 	mix local.hex --force
 	mix local.rebar --force
 
+props: clean-propcheck
+	mix test --only=property
+
 rel:
 	MIX_ENV=prod mix release
 

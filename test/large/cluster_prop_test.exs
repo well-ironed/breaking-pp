@@ -14,6 +14,7 @@ defmodule BreakingPP.Test.ClusterPropTest do
   @type session :: {cluster_node(), session_id()}
 
   @tag timeout: :infinity
+  @tag :property
   property "sessions are eventually consistent in a cluster of 3 nodes",
     [:verbose, {:start_size, 10}, {:max_size, 100},
      {:numtests, 500}, {:max_shrinks, 10}] do
