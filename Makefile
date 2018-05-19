@@ -1,4 +1,4 @@
-.PHONY: clean clean-propcheck deps docker prepare rel test
+.PHONY: clean clean-propcheck deps docker prepare props rel test
 
 clean:
 	rm -rf _build
@@ -16,8 +16,11 @@ prepare:
 	mix local.hex --force
 	mix local.rebar --force
 
-props: clean-propcheck
-	mix test --only=property
+props: clean-propcheck runs
+	mix test --only=property $(file) | tee runs/$(shell date +%s)
+
+runs:
+	mkdir -p runs
 
 rel:
 	MIX_ENV=prod mix release

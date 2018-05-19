@@ -17,7 +17,7 @@ defmodule BreakingPP.Test.ClusterPropTest do
   @tag :property
   property "sessions are eventually consistent in a cluster of 3 nodes",
     [:verbose, {:start_size, 10}, {:max_size, 100},
-     {:numtests, 500}, {:max_shrinks, 10}] do
+     {:numtests, 500}, {:max_shrinks, 100}] do
       forall cmds in commands(__MODULE__) do
         fresh_socket_table()
         {history, state, result} = run_commands(__MODULE__, cmds)
