@@ -16,8 +16,8 @@ defmodule BreakingPP.Test.ClusterPropTest do
   @tag timeout: :infinity
   @tag :property
   property "sessions are eventually consistent in a cluster of 3 nodes",
-    [:verbose, {:start_size, 10}, {:max_size, 100},
-     {:numtests, 500}, {:max_shrinks, 100}] do
+    [:verbose, {:start_size, 1}, {:max_size, 50},
+     {:numtests, 1_000}, {:max_shrinks, 100}] do
       forall cmds in commands(__MODULE__) do
         fresh_socket_table()
         {history, state, result} = run_commands(__MODULE__, cmds)
@@ -140,7 +140,9 @@ defmodule BreakingPP.Test.ClusterPropTest do
   end
 
   defp sessions(st) do
-    non_empty(list({running_node(st), session_id()}))
+    sized(size,
+      resize(size * 5,
+        non_empty(list({running_node(st), session_id()}))))
   end
 
   defp existing_sessions(st) do
