@@ -23,7 +23,7 @@ function stop_cluster {
     destroy_network
 }
 
-function start_node {
+function create_node {
     N=${1}
     SIZE=${2}
     NAME=${PREFIX}-${N}.local
@@ -38,6 +38,23 @@ function start_node {
         --name=${NAME} \
         -e "BREAKING_PP_CLUSTER=${CLUSTER}" \
         breaking-pp
+}
+
+function start_node {
+    NAME=${PREFIX}-${1}.local
+    docker start ${NAME}
+}
+
+function stop_node {
+    NAME=${PREFIX}-${1}.local
+    docker stop ${NAME}
+}
+
+function node_ip {
+    N=${1}
+    docker inspect \
+        -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \
+        ${PREFIX}-${N}.local
 }
 
 ${CMD} ${@}

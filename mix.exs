@@ -8,7 +8,8 @@ defmodule BreakingPp.MixProject do
       elixir: "~> 1.6",
       elixirc_paths: elixirc_paths(Mix.env),
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      aliases: aliases()
     ]
   end
 
@@ -22,6 +23,8 @@ defmodule BreakingPp.MixProject do
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
+  defp aliases, do: [test: "test --exclude=property"]
+
   defp deps do
     [
       {:cowboy, "~> 2.4"},
@@ -29,6 +32,7 @@ defmodule BreakingPp.MixProject do
       {:phoenix_pubsub, "~> 1.0"},
       {:distillery, "~> 1.5", runtime: false},
       {:httpoison, "~> 1.1", only: :test},
+      {:propcheck, "~> 1.0", only: :test},
       {:socket, "~> 0.3.13", only: :test}
     ]
   end

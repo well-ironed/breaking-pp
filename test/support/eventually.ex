@@ -1,9 +1,16 @@
 defmodule BreakingPP.Test.Eventually do
+  require Logger
 
   def eventually(f, retries \\ 300, sleep \\ 100)
-  def eventually(_, 0, _), do: raise "retries exceeded"
+  def eventually(_, 0, _), do: false
   def eventually(f, retries, sleep) do
-    case f.() do
+    result = try do
+      f.()
+    rescue e ->
+      Logger.error("While waiting for eventually: #{inspect e}")
+      false
+    end
+    case result do
       true ->
         true
       false -> 
