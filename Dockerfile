@@ -1,15 +1,11 @@
 FROM ubuntu
 
-RUN apt-get update && \
-    apt-get -y install wget gnupg2 make locales iputils-ping
-
-RUN locale-gen en_US en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
-
-RUN wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb && \
-    dpkg -i erlang-solutions_1.0_all.deb && \
-    apt-get update && \
-    apt-get -y install elixir
+RUN apt-get update && \
+    apt-get -y install wget gnupg2 git make locales iputils-ping \
+               erlang-base erlang-tools erlang-inets unzip && \
+    locale-gen en_US en_US.UTF-8 && \
+    cd /usr && wget https://github.com/elixir-lang/elixir/releases/download/v1.6.6/Precompiled.zip && unzip Precompiled.zip
 
 COPY . /breaking-pp
 
