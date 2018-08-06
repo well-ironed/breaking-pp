@@ -8,9 +8,7 @@ defmodule BreakingPP.Application do
     start_endpoints()
 
     children = [
-      supervisor(Phoenix.PubSub.PG2, [BreakingPP.PubSub, []]),
-      worker(BreakingPP.Tracker,
-        [[name: BreakingPP.Tracker, pubsub_server: BreakingPP.PubSub]]),
+      worker(BreakingPP.Tracker, [[]]),
       worker(BreakingPP.Cluster, [])
     ]
 
