@@ -11,11 +11,14 @@ defmodule BreakingPP.Test.Eventually do
       false
     end
     case result do
-      true ->
-        true
       false -> 
         Process.sleep(sleep)
         eventually(f, retries-1, sleep)
+      nil ->
+        Process.sleep(sleep)
+        eventually(f, retries-1, sleep)
+      other ->
+        other
     end
   end
 
