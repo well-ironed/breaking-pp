@@ -30,7 +30,7 @@ defmodule BreakingPp.MixProject do
       {:cowboy, "~> 2.4"},
       {:poison, "~> 3.1"},
       {:phoenix_pubsub,
-        git: "https://github.com/phoenixframework/phoenix_pubsub.git",
+        git: "https://github.com/distributed-owls/phoenix_pubsub.git",
         branch: "master"},
       {:recon, "~> 2.3"},
       {:distillery, "~> 1.5", runtime: false},

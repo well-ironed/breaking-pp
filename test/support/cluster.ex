@@ -53,7 +53,8 @@ defmodule BreakingPP.Test.Cluster do
   end
 
   defp cmd(cmd) do
-    System.cmd(Path.join([File.cwd!, "priv", "cluster.sh"]), cmd)
+    path = Path.join([File.cwd!, "priv", "cluster.sh"])
+    System.cmd(path, cmd, stderr_to_stdout: true)
   end
 
 end
