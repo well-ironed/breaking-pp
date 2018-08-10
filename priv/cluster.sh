@@ -32,7 +32,7 @@ function create_node {
         CLUSTER+="breaking_pp@${PREFIX}-${i}.local,"
     done
 
-    docker run -d -p ${N}4000:4000 \
+    docker run -d  \
         --network=${NETWORK} \
         --hostname=${NAME} \
         --name=${NAME} \
