@@ -3,7 +3,7 @@ defmodule BreakingPP.Test.ClusterPropTest do
   use PropCheck.StateM
   use PropCheck
   import BreakingPP.Test.Eventually
-  import BreakingPP.Test.Cluster, only: [session_ids: 1, node_map: 1]
+  import BreakingPP.Test.Cluster, only: [session_ids: 1, n: 1]
   alias BreakingPP.Test.Cluster
 
   @cluster_size 3
@@ -37,8 +37,8 @@ defmodule BreakingPP.Test.ClusterPropTest do
   def stop_node(node), do: Cluster.node_stopped(node)
 
   def connect_sessions(sessions) do
-    sockets = Enum.map(sessions, fn {node, id} ->
-      Cluster.session_connected(node_map(node), id)
+    sockets = Enum.map(sessions, fn {n, id} ->
+      Cluster.session_connected(n, id)
     end)
     store_sockets(sessions, sockets)
     sessions
@@ -89,7 +89,7 @@ defmodule BreakingPP.Test.ClusterPropTest do
   def precondition(_, _), do: true
 
   def next_state(s, _, {:call, __MODULE__, :start_cluster, [size]}) do
-    %{s | running_nodes: Enum.into(1..size, [])}
+    %{s | running_nodes: Enum.map(1..size, fn id -> n(id) end)}
   end
   def next_state(s, _, {:call, __MODULE__, :start_node, [node]}) do
     %{s | running_nodes: [node|s.running_nodes],
@@ -159,10 +159,8 @@ defmodule BreakingPP.Test.ClusterPropTest do
   defp stopped_node(%{stopped_nodes: nodes}), do: oneof(nodes)
 
   defp session_ids_on_nodes(nodes) do
-    Enum.map(nodes, fn n -> {n, session_ids_on(n)} end) |> Enum.into(%{})
+    Enum.map(nodes, fn n -> {n, session_ids(n)} end) |> Enum.into(%{})
   end
-
-  defp session_ids_on(n), do: node_map(n) |> session_ids()
 
   defp fresh_socket_table do
     try do

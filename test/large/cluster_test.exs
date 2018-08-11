@@ -31,7 +31,7 @@ defmodule BreakingPP.Test.ClusterTest do
     session_connected(n2, "2")
     true = eventually(fn -> session_ids(n1) == ["1", "2"] end)
     # when
-    node_stopped(2)
+    node_stopped(n2)
     # then
     assert eventually(fn -> session_ids(n1) == ["1"] end)
   end
@@ -42,8 +42,8 @@ defmodule BreakingPP.Test.ClusterTest do
     session_connected(n1, "1")
     true = eventually(fn -> session_ids(n2) == ["1"] end)
     # when
-    node_stopped(2)
-    node_started(2)
+    node_stopped(n2)
+    node_started(n2)
     # then
     assert eventually(fn -> session_ids(n2) == ["1"] end)
   end
