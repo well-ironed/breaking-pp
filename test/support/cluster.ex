@@ -1,8 +1,8 @@
 defmodule BreakingPP.Test.Cluster do
   import BreakingPP.Test.Eventually
-  alias BreakingPP.Model.{Node, Session}
+  alias BreakingPP.Model.Node
 
-  def cluster_started(size) do
+  def start(size) do
     {_, 0} = cmd(["stop_cluster"])
     {_, 0} = cmd(["create_network"])
     Enum.map(1..size, fn i -> create_node(i, size) end)
@@ -15,12 +15,12 @@ defmodule BreakingPP.Test.Cluster do
     n
   end
 
-  def node_started(n) do
+  def start_node(n) do
     {_, 0} = cmd(["start_node", "#{Node.id(n)}"])
     true = wait_for_node(n)
   end
 
-  def node_stopped(n) do
+  def stop_node(n) do
     {_, 0} = cmd(["stop_node", "#{Node.id(n)}"])
   end
 
@@ -38,16 +38,6 @@ defmodule BreakingPP.Test.Cluster do
       {ip, 0} = cmd(["node_ip", "#{i}"])
       String.trim(ip)
     end)
-  end
-
-  def session_connected(n, id) do
-    s = Socket.Web.connect!(Node.host(n), Node.port(n), path: "/sessions/#{id}")
-    Socket.active(s.socket)
-    Session.new(n, id, s)
-  end
-
-  def session_disconnected(session) do
-    Socket.Web.close(Session.socket(session))
   end
 
   def session_ids(n) do

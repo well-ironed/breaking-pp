@@ -4,7 +4,7 @@ defmodule BreakingPP.Test.ClusterPropTest do
   use PropCheck
   import BreakingPP.Test.Eventually
   import BreakingPP.Test.Cluster, only: [session_ids: 1, n: 1]
-  alias BreakingPP.Test.Cluster
+  alias BreakingPP.Test.{Cluster, Session}
 
   @cluster_size 3
   @socket_table :sockets
@@ -32,13 +32,13 @@ defmodule BreakingPP.Test.ClusterPropTest do
       end
   end
 
-  def start_cluster(size), do: Cluster.cluster_started(size)
-  def start_node(node), do: Cluster.node_started(node)
-  def stop_node(node), do: Cluster.node_stopped(node)
+  def start_cluster(size), do: Cluster.start(size)
+  def start_node(node), do: Cluster.start_node(node)
+  def stop_node(node), do: Cluster.stop_node(node)
 
   def connect_sessions(sessions) do
     sockets = Enum.map(sessions, fn {n, id} ->
-      Cluster.session_connected(n, id)
+      Session.connect(n, id)
     end)
     store_sockets(sessions, sockets)
     sessions
@@ -46,7 +46,7 @@ defmodule BreakingPP.Test.ClusterPropTest do
 
   def disconnect_sessions(sessions) do
     take_sockets(sessions)
-    |> Enum.map(fn {_, s} -> Cluster.session_disconnected(s) end)
+    |> Enum.map(fn {_, s} -> Session.disconnect(s) end)
   end
 
   def command(%{running_nodes: []}) do
