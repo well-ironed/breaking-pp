@@ -4,10 +4,9 @@ defmodule BreakingPP.Test.ClusterPropTest do
   use PropCheck
   import BreakingPP.Test.Eventually
   import BreakingPP.Test.Cluster, only: [session_ids: 1, n: 1]
-  alias BreakingPP.Test.{Cluster, Session}
+  alias BreakingPP.Test.{Cluster, Session, SessionStore}
 
   @cluster_size 3
-  @socket_table :sockets
 
   @type cluster_node :: integer()
   @type session_id :: String.t
@@ -17,9 +16,9 @@ defmodule BreakingPP.Test.ClusterPropTest do
   @tag :property
   property "sessions are eventually consistent in a cluster of 3 nodes",
     [:verbose, {:start_size, 1}, {:max_size, 50},
-     {:numtests, 1_000}, {:max_shrinks, 100}] do
+     {:numtests, 10}, {:max_shrinks, 100}] do
       forall cmds in commands(__MODULE__) do
-        fresh_socket_table()
+        SessionStore.new
         {history, state, result} = run_commands(__MODULE__, cmds)
         (result == :ok)
         |> when_fail(IO.puts """
@@ -36,17 +35,15 @@ defmodule BreakingPP.Test.ClusterPropTest do
   def start_node(node), do: Cluster.start_node(node)
   def stop_node(node), do: Cluster.stop_node(node)
 
-  def connect_sessions(sessions) do
-    sockets = Enum.map(sessions, fn {n, id} ->
-      Session.connect(n, id)
-    end)
-    store_sockets(sessions, sockets)
+  def connect_sessions(nodes_ids) do
+    sessions = Enum.map(nodes_ids, fn {n, id} -> Session.connect(n, id) end)
+    SessionStore.store(ids(nodes_ids), sessions)
     sessions
   end
 
-  def disconnect_sessions(sessions) do
-    take_sockets(sessions)
-    |> Enum.map(fn {_, s} -> Session.disconnect(s) end)
+  def disconnect_sessions(nodes_ids) do
+    SessionStore.take(ids(nodes_ids))
+    |> Enum.map(fn s -> Session.disconnect(s) end)
   end
 
   def command(%{running_nodes: []}) do
@@ -162,21 +159,5 @@ defmodule BreakingPP.Test.ClusterPropTest do
     Enum.map(nodes, fn n -> {n, session_ids(n)} end) |> Enum.into(%{})
   end
 
-  defp fresh_socket_table do
-    try do
-      :ets.delete(@socket_table)
-    rescue ArgumentError -> :ok
-    end
-    :ets.new(@socket_table, [:named_table, :public, :set])
-  end
-
-  defp store_sockets(sessions, sockets) do
-    Enum.zip(sessions, sockets)
-    |> Enum.map(fn {s, sckt} -> :ets.insert(@socket_table, {s, sckt}) end)
-  end
-
-  defp take_sockets(sessions) do
-    Enum.map(sessions, fn s -> :ets.take(@socket_table, s) end)
-    |> Enum.concat
-  end
+  defp ids(nodes_ids), do: Enum.map(nodes_ids, fn {_, id} -> id end)
 end
