@@ -1,14 +1,8 @@
 defmodule BreakingPP.Model.Node do
-  defstruct [:id, :host, :port]
+  defstruct [:id]
 
-  def new(id, host) when is_function(host, 0) do
-    %__MODULE__{id: id, host: host, port: 4000}
-  end
-
+  def new(id), do: %__MODULE__{id: id}
   def id(%__MODULE__{id: id}), do: id
 
-  def host(%__MODULE__{host: host}), do: host.()
+end 
 
-  def port(%__MODULE__{port: port}), do: port
-
-end

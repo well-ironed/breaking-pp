@@ -1,6 +1,6 @@
 defmodule BreakingPP.Test.TrackerAppTest do
   use ExUnit.Case
-  import BreakingPP.Test.Eventually
+  import BreakingPP.Eventually
   alias MapSet, as: S
 
   test "it returns empty list of sessions when no-one is connected" do

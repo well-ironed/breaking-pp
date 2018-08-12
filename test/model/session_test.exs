@@ -2,20 +2,14 @@ defmodule BreakingPP.Model.SessionTest do
   use ExUnit.Case, async: true
   alias BreakingPP.Model.{Node, Session}
 
-  test "it can be created with node, id and socket" do
-    n = Node.new(1, fn -> "localhost" end)
-    s = %Socket.Web{}
-    assert Session.new(n, "foo", s) == %Session{node: n, id: "foo", socket: s}
+  test "it can be created with node, id" do
+    n = Node.new(1)
+    assert Session.new(n, "foo") == %Session{node: n, id: "foo"}
   end 
 
-  test "socket can be accessed" do
-    s = given_session("1")
-    assert %Socket.Web{} = Session.socket(s)
-  end
-
   test "node can be accessed" do
-    n = Node.new(1, fn -> "foo" end)
-    s = Session.new(n, "id", %Socket.Web{})
+    n = Node.new(1)
+    s = Session.new(n, "id")
     assert Session.node(s) == n
   end
 
@@ -25,7 +19,7 @@ defmodule BreakingPP.Model.SessionTest do
   end
 
   defp given_session(id) do
-    n = Node.new(1, fn -> "foo" end)
-    Session.new(n, id, %Socket.Web{})
+    n = Node.new(1)
+    Session.new(n, id)
   end
 end

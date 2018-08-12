@@ -2,9 +2,8 @@ defmodule BreakingPP.Test.ClusterPropTest do
   use ExUnit.Case
   use PropCheck.StateM
   use PropCheck
-  import BreakingPP.Test.Eventually
-  import BreakingPP.Test.Cluster, only: [session_ids: 1, n: 1]
-  alias BreakingPP.Test.{Cluster, Session, SessionStore}
+  import BreakingPP.Eventually
+  alias BreakingPP.{RealWorld, Model}
 
   @cluster_size 3
 
@@ -16,135 +15,157 @@ defmodule BreakingPP.Test.ClusterPropTest do
   @tag :property
   property "sessions are eventually consistent in a cluster of 3 nodes",
     [:verbose, {:start_size, 1}, {:max_size, 50},
-     {:numtests, 10}, {:max_shrinks, 100}] do
+     {:numtests, 1_000}, {:max_shrinks, 100}] do
       forall cmds in commands(__MODULE__) do
-        SessionStore.new
         {history, state, result} = run_commands(__MODULE__, cmds)
         (result == :ok)
         |> when_fail(IO.puts """
           History: #{inspect history, pretty: true}
           State: #{inspect state, pretty: true}
           Result: #{inspect result, pretty: true}
-          Sessions: #{inspect session_ids_on_nodes(state.running_nodes),
-            pretty: true}
+          Sessions: #{inspect Model.Cluster.sessions(state), pretty: true}
           """)
       end
   end
 
-  def start_cluster(size), do: Cluster.start(size)
-  def start_node(node), do: Cluster.start_node(node)
-  def stop_node(node), do: Cluster.stop_node(node)
+  def start_cluster(size), do: RealWorld.Cluster.start(size)
 
-  def connect_sessions(nodes_ids) do
-    sessions = Enum.map(nodes_ids, fn {n, id} -> Session.connect(n, id) end)
-    SessionStore.store(ids(nodes_ids), sessions)
-    sessions
+  def start_node(node) do
+    Model.Node.id(node) |> RealWorld.Cluster.start_node()
   end
 
-  def disconnect_sessions(nodes_ids) do
-    SessionStore.take(ids(nodes_ids))
-    |> Enum.map(fn s -> Session.disconnect(s) end)
+  def stop_node(node) do
+    Model.Node.id(node) |> RealWorld.Cluster.stop_node()
   end
 
-  def command(%{running_nodes: []}) do
-    {:call, __MODULE__, :start_cluster, [@cluster_size]}
+  def connect_sessions(sessions) do
+    Enum.group_by(sessions, &Model.Session.node/1)
+    |> Enum.map(fn {node, sessions} ->
+      ids = Enum.map(sessions, &Model.Session.id/1)
+      RealWorld.Cluster.connect(Model.Node.id(node), ids)
+    end)
   end
+
+  def disconnect_sessions(sessions) do
+    Enum.map(sessions, &Model.Session.id/1)
+    |> RealWorld.Cluster.disconnect()
+  end
+
   def command(st) do
-    cmds = [{5, {:call, __MODULE__, :connect_sessions, [sessions(st)]}}]
-      ++ maybe_disconnect_sessions(st)
-      ++ maybe_start_node(st)
-      ++ maybe_stop_node(st)
-    weighted_union(cmds)
+    case Model.Cluster.started_nodes(st) do
+      [] ->
+        {:call, __MODULE__, :start_cluster, [@cluster_size]}
+      _ ->
+        cmds = [{5, {:call, __MODULE__, :connect_sessions, [sessions(st)]}}]
+          ++ maybe_disconnect_sessions(st)
+          ++ maybe_start_node(st)
+          ++ maybe_stop_node(st)
+        weighted_union(cmds)
+    end
   end
 
-  defp maybe_disconnect_sessions(%{sessions: []}), do: []
   defp maybe_disconnect_sessions(st) do
-    [{5, {:call, __MODULE__, :disconnect_sessions, [existing_sessions(st)]}}]
+    case Model.Cluster.sessions(st) do
+      [] -> []
+      _ -> [{5,{:call,__MODULE__,:disconnect_sessions,[existing_sessions(st)]}}]
+    end
   end
     
-  defp maybe_start_node(%{stopped_nodes: []}), do: []
   defp maybe_start_node(st) do
-    [{1, {:call, __MODULE__, :start_node, [stopped_node(st)]}}]
+    case Model.Cluster.stopped_nodes(st) do
+      [] -> []
+      _ -> [{1, {:call, __MODULE__, :start_node, [stopped_node(st)]}}]
+    end
   end
 
-  defp maybe_stop_node(%{running_nodes: []}), do: []
   defp maybe_stop_node(st) do
-    [{1, {:call, __MODULE__, :stop_node, [running_node(st)]}}]
+    case Model.Cluster.started_nodes(st) do
+      [] -> []
+      _ -> [{1, {:call, __MODULE__, :stop_node, [running_node(st)]}}]
+    end
   end
 
-  def initial_state, do: %{running_nodes: [], stopped_nodes: [], sessions: []}
+  def initial_state do
+    Model.Cluster.new()
+  end
 
   def precondition(s, {:call, __MODULE__, :start_node, [node]}) do
-    Enum.member?(s.stopped_nodes, node)
+    Model.Cluster.node_stopped?(s, node)
   end
   def precondition(s, {:call, __MODULE__, :stop_node, [node]}) do
-    Enum.count(s.running_nodes) > 1 and Enum.member?(s.running_nodes, node)
+    Model.Cluster.node_started?(s, node)
   end
   def precondition(s, {:call, __MODULE__, :disconnect_sessions, _}) do
-    s.sessions != []
+    Model.Cluster.sessions(s) != []
   end
   def precondition(_, _), do: true
 
   def next_state(s, _, {:call, __MODULE__, :start_cluster, [size]}) do
-    %{s | running_nodes: Enum.map(1..size, fn id -> n(id) end)}
+    Model.Cluster.start_nodes(s, Enum.map(1..size, &Model.Node.new/1))
   end
   def next_state(s, _, {:call, __MODULE__, :start_node, [node]}) do
-    %{s | running_nodes: [node|s.running_nodes],
-          stopped_nodes: List.delete(s.stopped_nodes, node)}
+    Model.Cluster.start_node(s, node)
   end
   def next_state(s, _, {:call, __MODULE__, :stop_node, [node]}) do
-    sessions = Enum.reject(s.sessions, fn {n, _} -> n == node end)
-    %{s | running_nodes: List.delete(s.running_nodes, node),
-          stopped_nodes: [node|s.stopped_nodes],
-          sessions: sessions}
+    Model.Cluster.stop_node(s, node)
   end
-  def next_state(s, _,
-    {:call, __MODULE__, :connect_sessions, [sessions]}) do
-    %{s | sessions: s.sessions ++ sessions}
+  def next_state(s, _, {:call, __MODULE__, :connect_sessions, [sessions]}) do
+    Model.Cluster.add_sessions(s, sessions)
   end
   def next_state(s, _, {:call, __MODULE__, :disconnect_sessions, [sessions]}) do
-    %{s | sessions: s.sessions -- sessions}
+    Model.Cluster.remove_sessions(s, sessions)
   end
 
   def postcondition(st, {:call, __MODULE__, :start_node, [node]}, _) do
     eventually(fn ->
-      sessions_on_nodes_are_equal_to(st.sessions, [node|st.running_nodes])
+      sessions_in_real_world_are_equal_to(Model.Cluster.start_node(st, node))
     end)
   end
   def postcondition(st, {:call, __MODULE__, :stop_node, [node]}, _) do
-    sessions = Enum.reject(st.sessions, fn {n, _} -> n == node end)
     eventually(fn ->
-      sessions_on_nodes_are_equal_to(
-        sessions, List.delete(st.running_nodes, node))
+      sessions_in_real_world_are_equal_to(Model.Cluster.stop_node(st, node))
     end)
   end
-  def postcondition(st, {:call, __MODULE__, :connect_sessions, [sessions]},_) do
+  def postcondition(st, {:call, __MODULE__, :connect_sessions, [ss]},_) do
     eventually(fn ->
-      sessions_on_nodes_are_equal_to(st.sessions ++ sessions, st.running_nodes)
+      sessions_in_real_world_are_equal_to(Model.Cluster.add_sessions(st, ss))
     end)
   end
-  def postcondition(st,{:call,__MODULE__,:disconnect_sessions, [sessions]},_) do
+  def postcondition(st,{:call,__MODULE__,:disconnect_sessions, [ss]},_) do
     eventually(fn ->
-      sessions_on_nodes_are_equal_to(st.sessions -- sessions, st.running_nodes)
+      sessions_in_real_world_are_equal_to(Model.Cluster.remove_sessions(st, ss))
     end)
   end
   def postcondition(_, _, _), do: true
 
-  defp sessions_on_nodes_are_equal_to(sessions, nodes) do
-    session_ids = Enum.map(sessions, fn {_, id} -> id end) |> Enum.sort
-    Enum.all?(session_ids_on_nodes(nodes),
-      fn {_, session_ids_on_node} -> session_ids_on_node == session_ids end)
+  defp sessions_in_real_world_are_equal_to(cluster) do
+    session_ids_in_real_world = 
+      Enum.map(Model.Cluster.started_nodes(cluster), &Model.Node.id/1)
+      |> RealWorld.Cluster.session_ids_on_nodes()
+
+    session_ids_in_model =
+      Enum.map(Model.Cluster.sessions(cluster), &Model.Session.id/1)
+
+    Enum.all?(session_ids_in_real_world, fn session_ids ->
+      Enum.sort(session_ids) == Enum.sort(session_ids_in_model)
+    end)
   end
 
   defp sessions(st) do
     sized(size,
       resize(size * 5,
-        non_empty(list({running_node(st), session_id()}))))
+        non_empty(list(session(st)))))
+  end
+
+  defp session(st) do
+    let {node, id} <- {running_node(st), session_id()} do
+      Model.Session.new(node, id)
+    end
   end
 
   defp existing_sessions(st) do
-    let n <- integer(1, Enum.count(st.sessions)) do
-      Enum.take_random(st.sessions, n)
+    let n <- integer(1, Enum.count(Model.Cluster.sessions(st))) do
+      Enum.take_random(Model.Cluster.sessions(st), n)
     end
   end
 
@@ -152,12 +173,6 @@ defmodule BreakingPP.Test.ClusterPropTest do
     let _ <- integer(), do: "#{System.unique_integer([:monotonic, :positive])}"
   end
 
-  defp running_node(%{running_nodes: nodes}), do: oneof(nodes)
-  defp stopped_node(%{stopped_nodes: nodes}), do: oneof(nodes)
-
-  defp session_ids_on_nodes(nodes) do
-    Enum.map(nodes, fn n -> {n, session_ids(n)} end) |> Enum.into(%{})
-  end
-
-  defp ids(nodes_ids), do: Enum.map(nodes_ids, fn {_, id} -> id end)
+  defp running_node(state), do: oneof(Model.Cluster.started_nodes(state))
+  defp stopped_node(state), do: oneof(Model.Cluster.stopped_nodes(state))
 end
