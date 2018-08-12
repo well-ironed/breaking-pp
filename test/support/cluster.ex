@@ -1,6 +1,6 @@
 defmodule BreakingPP.Test.Cluster do
   import BreakingPP.Test.Eventually
-  alias BreakingPP.Model.Node
+  alias BreakingPP.Model.{Node, Session}
 
   def cluster_started(size) do
     {_, 0} = cmd(["stop_cluster"])
@@ -43,11 +43,11 @@ defmodule BreakingPP.Test.Cluster do
   def session_connected(n, id) do
     s = Socket.Web.connect!(Node.host(n), Node.port(n), path: "/sessions/#{id}")
     Socket.active(s.socket)
-    s 
+    Session.new(n, id, s)
   end
 
-  def session_disconnected(socket) do
-    Socket.Web.close(socket)
+  def session_disconnected(session) do
+    Socket.Web.close(Session.socket(session))
   end
 
   def session_ids(n) do
