@@ -1,4 +1,4 @@
-defmodule BreakingPP.Test.Eventually do
+defmodule BreakingPP.Eventually do
   require Logger
 
   def eventually(f, retries \\ 300, sleep \\ 100)

@@ -1,4 +1,4 @@
-.PHONY: clean clean-propcheck deps docker prepare props rel test
+.PHONY: clean clean-propcheck deps docker prepare props rel test watch
 
 clean:
 	rm -rf _build
@@ -27,3 +27,7 @@ rel:
 
 test:
 	mix test $(file)
+
+watch:
+	@ls -1 runs/* | sort -r | head -1 | \
+		xargs -I% watch -n 1 'grep -E "^\\.*$$" % | wc -c'
