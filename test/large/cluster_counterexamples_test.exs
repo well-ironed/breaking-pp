@@ -36,5 +36,32 @@ defmodule BreakingPP.CounterExamplesTest do
     end, 60, 1_000)
   end
 
+  @tag timeout: 300_000
+  test "counterexample 2" do
+    [n1, n2, n3] = Cluster.start(3)
+
+    Cluster.stop_node(n1)
+    assert eventually(fn ->
+      Cluster.session_ids_on_nodes([n2, n3]) == [[], []]
+    end)
+
+    Cluster.connect(n2, ["201"])
+    Cluster.connect(n3, ids(301..350))
+    assert eventually(fn ->
+      Cluster.session_ids_on_nodes([n2, n3]) == 
+        [["201"] ++ ids(301..350), ["201"] ++ ids(301..350)] 
+    end)
+
+    Cluster.stop_node(n3)
+    assert eventually(fn ->
+      Cluster.session_ids_on_nodes([n2]) == [["201"]]
+    end)
+
+    Cluster.start_node(n1)
+    assert eventually(fn ->
+      Cluster.session_ids_on_nodes([n1, n2]) == [["201"], ["201"]]
+    end, 60, 1_000)
+  end
+
   defp ids(range), do: Enum.map(range, &Integer.to_string/1)
 end
