@@ -1,0 +1,8 @@
+language: elixir
+elixir: '1.6.0'
+otp_release: '19.0'
+script:
+- make docker test
+env:
+- TRACKER=ets
+- TRACKER=pp
