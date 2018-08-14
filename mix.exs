@@ -34,6 +34,7 @@ defmodule BreakingPp.MixProject do
         branch: "master"},
       {:recon, "~> 2.3"},
       {:distillery, "~> 1.5", runtime: false},
+      {:mock, "~> 0.3.0", only: :test},
       {:httpoison, "~> 1.1", only: :test},
       {:propcheck, "~> 1.0", only: :test},
       {:socket, "~> 0.3.13", only: :test}

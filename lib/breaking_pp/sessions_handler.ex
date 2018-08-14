@@ -7,7 +7,8 @@ defmodule BreakingPP.SessionsHandler do
   end
 
   def websocket_init(%{id: id}=state) do
-    {:ok, _} = BreakingPP.Tracker.register(self(), id)
+    tracker = BreakingPP.Config.tracker_module()
+    {:ok, _} = tracker.register(self(), id)
     {:ok, state}
   end
 

@@ -6,11 +6,10 @@ defmodule BreakingPP.Application do
 
   def start(_type, _args) do
     start_endpoints()
-
+    {tracker_module, tracker_opts} = BreakingPP.Config.tracker_mod_opts()
     children = [
       supervisor(Phoenix.PubSub.PG2, [BreakingPP.PubSub, []]),
-      worker(BreakingPP.Tracker,
-        [[name: BreakingPP.Tracker, pubsub_server: BreakingPP.PubSub]]),
+      worker(tracker_module, [tracker_opts]),
       worker(BreakingPP.Cluster, [])
     ]
 

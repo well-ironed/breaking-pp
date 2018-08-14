@@ -1,4 +1,4 @@
-defmodule BreakingPP.Tracker do
+defmodule BreakingPP.Tracker.PP do
   @behaviour Phoenix.Tracker
   @topic "breaking-pp"
 
@@ -23,5 +23,11 @@ defmodule BreakingPP.Tracker do
   def register(pid, id) do
     Phoenix.Tracker.track(__MODULE__, pid, @topic, id, %{})
   end
+
+  def sync_with(_) do
+    # This is unnecessary with the Phoenix Pubsub tracker
+    :ok
+  end
+
 end
 

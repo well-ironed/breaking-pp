@@ -17,7 +17,8 @@ prepare:
 	mix local.rebar --force
 
 props: clean-propcheck runs
-	mix test --only=property $(file) | tee runs/$(shell date +%s)
+	TRACKER="$(TRACKER)" mix test --only=property $(file) \
+        | tee runs/$(shell date +%s)
 
 runs:
 	mkdir -p runs
@@ -26,7 +27,7 @@ rel:
 	MIX_ENV=prod mix release
 
 test:
-	mix test $(file)
+	TRACKER="$(TRACKER)" mix test $(file)
 
 watch:
 	@ls -1 runs/* | sort -r | head -1 | \
