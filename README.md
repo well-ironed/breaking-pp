@@ -1,6 +1,7 @@
 # Distributed tests of Phoenix PubSub
 
-![travis](https://travis-ci.org/distributed-owls/breaking-pp.svg?branch=master)
+[![Build Status](https://travis-ci.org/distributed-owls/breaking-pp.svg?branch=master)](https://travis-ci.org/distributed-owls/breaking-pp)
+
 
 ## Quick Start
 
