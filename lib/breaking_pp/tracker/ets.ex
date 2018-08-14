@@ -1,4 +1,4 @@
-defmodule BreakingPP.Tracker do
+defmodule BreakingPP.Tracker.ETS do
   @behaviour Phoenix.Tracker
   @table :breaking_pp
 

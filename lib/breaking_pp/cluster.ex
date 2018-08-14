@@ -25,7 +25,8 @@ defmodule BreakingPP.Cluster do
 
   defp connect_nodes(nodes) do
     Enum.each(nodes, &Node.connect/1)
-    BreakingPP.Tracker.sync_with(nodes)
+    tracker = BreakingPP.Config.tracker_module()
+    tracker.sync_with(nodes)
   end
 
   defp parse_nodes(nil), do: []

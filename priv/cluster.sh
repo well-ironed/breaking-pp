@@ -37,6 +37,7 @@ function create_node {
         --hostname=${NAME} \
         --name=${NAME} \
         -e "BREAKING_PP_CLUSTER=${CLUSTER}" \
+        -e "TRACKER=${TRACKER}" \
         breaking-pp
 }
 
