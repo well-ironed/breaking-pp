@@ -4,6 +4,7 @@ defmodule BreakingPP.RealWorld.Cluster do
   alias BreakingPP.RealWorld.Sessions
 
   def start(size) do
+    reset_splits()
     Sessions.new()
     {_, 0} = cmd(["stop_cluster"])
     {_, 0} = cmd(["create_network"])
@@ -34,6 +35,14 @@ defmodule BreakingPP.RealWorld.Cluster do
     Sessions.disconnect(session_ids)
   end
 
+  def split(node1_id, node2_id) do
+    {_, 0} = cmd(["split", "#{node1_id}", "#{node2_id}"])
+  end
+
+  def join(node1_id, node2_id) do
+    {_, 0} = cmd(["join", "#{node1_id}", "#{node2_id}"])
+  end
+
   def session_ids_on_nodes(node_ids) do
     Enum.map(node_ids, &session_ids/1)
   end
@@ -57,10 +66,13 @@ defmodule BreakingPP.RealWorld.Cluster do
   end
 
   defp real_world_node(id) do
-    RealWorld.Node.new(id, fn ->
-      {ip, 0} = cmd(["node_ip", "#{id}"])
-      String.trim(ip)
-    end)
+    {ip, 0} = cmd(["node_ip", "#{id}"])
+    ip = String.trim(ip)
+    RealWorld.Node.new(id, ip)
+  end
+
+  defp reset_splits do
+    {_, 0} = cmd(["reset_splits"])
   end
 
   defp cmd(cmd) do

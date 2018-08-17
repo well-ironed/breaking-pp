@@ -7,10 +7,6 @@ defmodule BreakingPP.Test.ClusterPropTest do
 
   @cluster_size 3
 
-  @type cluster_node :: integer()
-  @type session_id :: String.t
-  @type session :: {cluster_node(), session_id()}
-
   @tag timeout: :infinity
   @tag :property
   property "sessions are eventually consistent in a cluster of 3 nodes",
@@ -60,8 +56,20 @@ defmodule BreakingPP.Test.ClusterPropTest do
           ++ maybe_disconnect_sessions(st)
           ++ maybe_start_node(st)
           ++ maybe_stop_node(st)
+          ++ maybe_split_nodes(st)
+          ++ maybe_join_nodes(st)
         weighted_union(cmds)
     end
+  end
+
+  defp maybe_split_nodes(_st) do
+    IO.puts "would split nodes"
+    []
+  end
+
+  defp maybe_join_nodes(_st) do
+    IO.puts "would join nodes"
+    []
   end
 
   defp maybe_disconnect_sessions(st) do
@@ -70,7 +78,7 @@ defmodule BreakingPP.Test.ClusterPropTest do
       _ -> [{5,{:call,__MODULE__,:disconnect_sessions,[existing_sessions(st)]}}]
     end
   end
-    
+
   defp maybe_start_node(st) do
     case Model.Cluster.stopped_nodes(st) do
       [] -> []
@@ -139,7 +147,7 @@ defmodule BreakingPP.Test.ClusterPropTest do
   def postcondition(_, _, _), do: true
 
   defp sessions_in_real_world_are_equal_to(cluster) do
-    session_ids_in_real_world = 
+    session_ids_in_real_world =
       Enum.map(Model.Cluster.started_nodes(cluster), &Model.Node.id/1)
       |> RealWorld.Cluster.session_ids_on_nodes()
 
