@@ -89,7 +89,7 @@ defmodule BreakingPP.Model.ClusterTest do
 
     c = Cluster.add_sessions(c, [s1, s2])
 
-    assert Cluster.sessions(c, n1) == [s1, s2]
+    assert Cluster.sessions(c) == [s1, s2]
   end
 
   test "sessions can be removed" do
@@ -100,7 +100,7 @@ defmodule BreakingPP.Model.ClusterTest do
 
     c = Cluster.remove_sessions(c, [s1, s3])
 
-    assert Cluster.sessions(c, n1) == [s2]
+    assert Cluster.sessions(c) == [s2]
   end
 
   test "sessions from a stopped node are removed" do
@@ -113,7 +113,29 @@ defmodule BreakingPP.Model.ClusterTest do
 
     c = Cluster.stop_node(c, n1)
 
-    assert Cluster.sessions(c, n2) == sessions2
+    assert Cluster.sessions(c) == sessions2
+  end
+
+  test "it can check for split between nodes" do
+    c = Cluster.new
+    [n1, n2, n3] = given_nodes(3)
+
+    c = Cluster.split(c, n1, n2)
+
+    assert Cluster.split_between?(c, n1, n2)
+    assert Cluster.split_between?(c, n2, n1)
+    refute Cluster.split_between?(c, n2, n3)
+    refute Cluster.split_between?(c, n3, n2)
+  end
+
+  test "sessions can be checked for one node" do
+    c = Cluster.new
+    [n] = given_nodes(1)
+    sessions = given_sessions(n, 2)
+
+    c = Cluster.add_sessions(c, sessions)
+
+    assert Cluster.sessions(c, n) == sessions
   end
 
   test "sessions are removed if there's a split between nodes" do

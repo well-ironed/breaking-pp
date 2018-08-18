@@ -34,6 +34,14 @@ defmodule BreakingPP.Test.ClusterPropTest do
     Model.Node.id(node) |> RealWorld.Cluster.stop_node()
   end
 
+  def join(node1, node2) do
+    RealWorld.Cluster.join(Model.Node.id(node1), Model.Node.id(node2))
+  end
+
+  def split(node1, node2) do
+    RealWorld.Cluster.split(Model.Node.id(node1), Model.Node.id(node2))
+  end
+
   def connect_sessions(sessions) do
     Enum.group_by(sessions, &Model.Session.node/1)
     |> Enum.map(fn {node, sessions} ->
@@ -62,14 +70,22 @@ defmodule BreakingPP.Test.ClusterPropTest do
     end
   end
 
-  defp maybe_split_nodes(_st) do
-    IO.puts "would split nodes"
-    []
+  defp maybe_split_nodes(st) do
+    case Model.Cluster.started_nodes(st) do
+      [] ->
+        []
+      _ -> 
+        [{1, {:call, __MODULE__, :split, [running_node(st), running_node(st)]}}]
+    end
   end
 
-  defp maybe_join_nodes(_st) do
-    IO.puts "would join nodes"
-    []
+  defp maybe_join_nodes(st) do
+    case Model.Cluster.started_nodes(st) do
+      [] ->
+        []
+      _ ->
+        [{1, {:call, __MODULE__, :join, [running_node(st), running_node(st)]}}]
+    end
   end
 
   defp maybe_disconnect_sessions(st) do
@@ -106,7 +122,16 @@ defmodule BreakingPP.Test.ClusterPropTest do
   def precondition(s, {:call, __MODULE__, :disconnect_sessions, _}) do
     Model.Cluster.sessions(s) != []
   end
-  def precondition(_, _), do: true
+  def precondition(s, {:call, __MODULE__, :split, [node1, node2]}) do
+    node1 != node2 and not Model.Cluster.split_between?(s, node1, node2)
+  end
+  def precondition(s, {:call, __MODULE__, :join, [node1, node2]}) do
+    Model.Cluster.split_between?(s, node1, node2)
+  end
+  def precondition(_, {:call, __MODULE__, cmd, _})
+    when cmd in [:start_cluster, :connect_sessions] do
+    true
+  end
 
   def next_state(s, _, {:call, __MODULE__, :start_cluster, [size]}) do
     Model.Cluster.start_nodes(s, Enum.map(1..size, &Model.Node.new/1))
@@ -122,6 +147,12 @@ defmodule BreakingPP.Test.ClusterPropTest do
   end
   def next_state(s, _, {:call, __MODULE__, :disconnect_sessions, [sessions]}) do
     Model.Cluster.remove_sessions(s, sessions)
+  end
+  def next_state(s, _, {:call, __MODULE__, :split, [node1, node2]}) do
+    Model.Cluster.split(s, node1, node2)
+  end
+  def next_state(s, _, {:call, __MODULE__, :join, [node1, node2]}) do
+    Model.Cluster.join(s, node1, node2)
   end
 
   def postcondition(st, {:call, __MODULE__, :start_node, [node]}, _) do
@@ -144,18 +175,28 @@ defmodule BreakingPP.Test.ClusterPropTest do
       sessions_in_real_world_are_equal_to(Model.Cluster.remove_sessions(st, ss))
     end)
   end
-  def postcondition(_, _, _), do: true
+  def postcondition(st, {:call, __MODULE__, :join, [n1, n2]}, _) do
+    eventually(fn ->
+      sessions_in_real_world_are_equal_to(Model.Cluster.join(st, n1, n2))
+    end)
+  end
+  def postcondition(st, {:call, __MODULE__, :split, [n1, n2]}, _) do
+    eventually(fn ->
+      sessions_in_real_world_are_equal_to(Model.Cluster.split(st, n1, n2))
+    end)
+  end
+  def postcondition(_, {:call, __MODULE__, :start_cluster, _}, _) do
+    true
+  end
 
   defp sessions_in_real_world_are_equal_to(cluster) do
-    session_ids_in_real_world =
-      Enum.map(Model.Cluster.started_nodes(cluster), &Model.Node.id/1)
-      |> RealWorld.Cluster.session_ids_on_nodes()
-
-    session_ids_in_model =
-      Enum.map(Model.Cluster.sessions(cluster), &Model.Session.id/1)
-
-    Enum.all?(session_ids_in_real_world, fn session_ids ->
-      Enum.sort(session_ids) == Enum.sort(session_ids_in_model)
+    Model.Cluster.started_nodes(cluster)
+    |> Enum.all?(fn n ->
+      session_ids_in_real_world =
+        Model.Node.id(n) |> RealWorld.Cluster.session_ids()
+      session_ids_in_model =
+        Enum.map(Model.Cluster.sessions(cluster, n), &Model.Session.id/1)
+      Enum.sort(session_ids_in_real_world) == Enum.sort(session_ids_in_model)
     end)
   end
 

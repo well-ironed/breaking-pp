@@ -23,6 +23,8 @@ defmodule BreakingPP.Model.Cluster do
 
   def stopped_nodes(%__MODULE__{stopped_nodes: ns}), do: ns
 
+  def sessions(%__MODULE__{sessions: sessions}), do: sessions
+
   def sessions(%__MODULE__{sessions: sessions, splits: splits}, node) do
     Enum.reject(sessions, fn s ->
       MapSet.member?(splits, {Session.node(s), node})
@@ -79,5 +81,9 @@ defmodule BreakingPP.Model.Cluster do
 
   def node_started?(%__MODULE__{started_nodes: ns}, node) do
     Enum.member?(ns, node)
+  end
+
+  def split_between?(%__MODULE__{splits: splits}, node1, node2) do
+    MapSet.member?(splits, {node1, node2})
   end
 end
