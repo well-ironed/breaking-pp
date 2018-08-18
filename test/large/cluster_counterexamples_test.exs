@@ -3,7 +3,8 @@ defmodule BreakingPP.CounterExamplesTest do
   import BreakingPP.Eventually
   alias BreakingPP.RealWorld.Cluster
 
-  @tag timeout: 300_000
+  @moduletag timeout: 300_000
+
   test "counterexample 1" do
     [n1, n2, n3] = Cluster.start(3)
 
@@ -36,7 +37,6 @@ defmodule BreakingPP.CounterExamplesTest do
     end, 60, 1_000)
   end
 
-  @tag timeout: 300_000
   test "counterexample 2" do
     [n1, n2, n3] = Cluster.start(3)
 
@@ -45,21 +45,21 @@ defmodule BreakingPP.CounterExamplesTest do
       Cluster.session_ids_on_nodes([n2, n3]) == [[], []]
     end)
 
-    Cluster.connect(n2, ["201"])
-    Cluster.connect(n3, ids(301..350))
+    Cluster.connect(n2, ids(201..270))
+    Cluster.connect(n3, ids(301..383))
     assert eventually(fn ->
       Cluster.session_ids_on_nodes([n2, n3]) == 
-        [["201"] ++ ids(301..350), ["201"] ++ ids(301..350)] 
+        List.duplicate(ids(201..270) ++ ids(301..383), 2)
     end)
 
     Cluster.stop_node(n3)
     assert eventually(fn ->
-      Cluster.session_ids_on_nodes([n2]) == [["201"]]
+      Cluster.session_ids_on_nodes([n2]) == [ids(201..270)]
     end)
 
     Cluster.start_node(n1)
     assert eventually(fn ->
-      Cluster.session_ids_on_nodes([n1, n2]) == [["201"], ["201"]]
+      Cluster.session_ids_on_nodes([n1, n2]) == List.duplicate(ids(201..270), 2)
     end, 60, 1_000)
   end
 
