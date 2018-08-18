@@ -76,16 +76,14 @@ defmodule BreakingPP.Model.ClusterTest do
   end
 
   test "sessions can be accessed" do
-    c = Cluster.new
-    n = Node.new(1)
+    {c, [n]} = given_cluster_with_nodes(1)
     c = Cluster.start_node(c, n)
     assert Cluster.sessions(c, n) == []
   end
 
   test "sessions can be added" do
-    c = Cluster.new
-    n1 = Node.new(1)
-    [s1, s2] = given_sessions(n1, 2)
+    {c, [n]} = given_cluster_with_nodes(1)
+    [s1, s2] = given_sessions(n, 2)
 
     c = Cluster.add_sessions(c, [s1, s2])
 
@@ -93,8 +91,7 @@ defmodule BreakingPP.Model.ClusterTest do
   end
 
   test "sessions can be removed" do
-    c = Cluster.new
-    n1 = Node.new(1)
+    {c, [n1]} = given_cluster_with_nodes(1)
     [s1, s2, s3] = given_sessions(n1, 3)
     c = Cluster.add_sessions(c, [s1, s2, s3])
 
@@ -104,8 +101,7 @@ defmodule BreakingPP.Model.ClusterTest do
   end
 
   test "sessions from a stopped node are removed" do
-    c = Cluster.new
-    [n1, n2] = given_nodes(2)
+    {c, [n1, n2]} = given_cluster_with_nodes(2)
     sessions1 = given_sessions(n1, 2)
     sessions2 = given_sessions(n2, 3)
     c = Cluster.start_node(c, [n1, n2])
@@ -117,8 +113,7 @@ defmodule BreakingPP.Model.ClusterTest do
   end
 
   test "it can check for split between nodes" do
-    c = Cluster.new
-    [n1, n2, n3] = given_nodes(3)
+    {c, [n1, n2, n3]} = given_cluster_with_nodes(3)
 
     c = Cluster.split(c, n1, n2)
 
@@ -129,8 +124,7 @@ defmodule BreakingPP.Model.ClusterTest do
   end
 
   test "sessions can be checked for one node" do
-    c = Cluster.new
-    [n] = given_nodes(1)
+    {c, [n]} = given_cluster_with_nodes(1)
     sessions = given_sessions(n, 2)
 
     c = Cluster.add_sessions(c, sessions)
@@ -139,32 +133,32 @@ defmodule BreakingPP.Model.ClusterTest do
   end
 
   test "sessions are removed if there's a split between nodes" do
-    c = Cluster.new
-    [n1, n2] = given_nodes(2)
-    sessions1 = given_sessions(n1, 2)
-    sessions2 = given_sessions(n2, 3)
-    c = Cluster.start_node(c, [n1, n2])
-    c = Cluster.add_sessions(c, sessions1 ++ sessions2)
+    {c, [n1, n2]} = given_cluster_with_nodes(2)
+    {s1, s2} = {given_sessions(n1, 2), given_sessions(n2, 3)}
+    c = Cluster.add_sessions(c, s1 ++ s2)
 
     c = Cluster.split(c, n1, n2)
 
-    assert Cluster.sessions(c, n1) == sessions1
-    assert Cluster.sessions(c, n2) == sessions2
+    assert Cluster.sessions(c, n1) == s1
+    assert Cluster.sessions(c, n2) == s2
   end
 
   test "sessions are re-added after nodes join again" do
-    c = Cluster.new
-    [n1, n2] = given_nodes(2)
-    sessions1 = given_sessions(n1, 2)
-    sessions2 = given_sessions(n2, 3)
-    c = Cluster.start_node(c, [n1, n2])
-    c = Cluster.add_sessions(c, sessions1 ++ sessions2)
+    {c, [n1, n2]} = given_cluster_with_nodes(2)
+    {s1, s2} = {given_sessions(n1, 2), given_sessions(n2, 3)}
+    c = Cluster.add_sessions(c, s1 ++ s2)
     c = Cluster.split(c, n1, n2)
 
     c = Cluster.join(c, n1, n2)
 
-    assert Cluster.sessions(c, n1) == sessions1 ++ sessions2
-    assert Cluster.sessions(c, n2) == sessions1 ++ sessions2
+    assert Cluster.sessions(c, n1) == s1 ++ s2
+    assert Cluster.sessions(c, n2) == s1 ++ s2
+  end
+
+  defp given_cluster_with_nodes(n) do
+    c = Cluster.new
+    nodes = given_nodes(n)
+    {Cluster.start_nodes(c, nodes), nodes}
   end
 
   defp given_sessions(node, n) do
