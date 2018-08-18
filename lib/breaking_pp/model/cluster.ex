@@ -1,14 +1,21 @@
 defmodule BreakingPP.Model.Cluster do
   alias BreakingPP.Model.{Node, Session}
 
-  defstruct [started_nodes: [], stopped_nodes: [], sessions: []]
+  defstruct [
+    started_nodes: [],
+    stopped_nodes: [],
+    sessions: [],
+    splits: MapSet.new()
+  ]
 
   @type session_id :: {Node.t, String.t}
+  @type split :: {Node.t, Node.t}
 
   @type t :: %__MODULE__{
     started_nodes: [Node.t],
     stopped_nodes: [Node.t],
-    sessions: [Session.t]}
+    sessions: [Session.t],
+    splits: MapSet.t(split)}
 
   def new, do: %__MODULE__{}
 
@@ -17,6 +24,12 @@ defmodule BreakingPP.Model.Cluster do
   def stopped_nodes(%__MODULE__{stopped_nodes: ns}), do: ns
 
   def sessions(%__MODULE__{sessions: sessions}), do: sessions
+
+  def sessions(%__MODULE__{sessions: sessions, splits: splits}, node) do
+    Enum.reject(sessions, fn s ->
+      MapSet.member?(splits, {Session.node(s), node})
+    end)
+  end
 
   def start_node(%__MODULE__{}=cluster, node) do
     start_nodes(cluster, [node])
@@ -46,11 +59,31 @@ defmodule BreakingPP.Model.Cluster do
     %{cluster | sessions: cluster.sessions -- sessions}
   end
 
+  def split(%__MODULE__{}=cluster, node1, node2) do
+    splits =
+      cluster.splits
+      |> MapSet.put({node1, node2})
+      |> MapSet.put({node2, node1})
+    %{cluster | splits: splits}
+  end
+
+  def join(%__MODULE__{}=cluster, node1, node2) do
+    splits =
+      cluster.splits
+      |> MapSet.delete({node1, node2})
+      |> MapSet.delete({node2, node1})
+    %{cluster | splits: splits}
+  end
+
   def node_stopped?(%__MODULE__{stopped_nodes: ns}, node) do
     Enum.member?(ns, node)
   end
 
   def node_started?(%__MODULE__{started_nodes: ns}, node) do
     Enum.member?(ns, node)
+  end
+
+  def split_between?(%__MODULE__{splits: splits}, node1, node2) do
+    MapSet.member?(splits, {node1, node2})
   end
 end
