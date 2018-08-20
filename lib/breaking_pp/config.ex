@@ -1,12 +1,14 @@
 defmodule BreakingPP.Config do
   @ets_tracker BreakingPP.Tracker.ETS
   @pp_tracker BreakingPP.Tracker.PP
+  @mnesia_tracker BreakingPP.Tracker.Mnesia
   @pp_opts name: @pp_tracker, pubsub_server: BreakingPP.PubSub
 
 
   def tracker_mod_opts() do
     case tracker_env_var() do
       :ets -> {@ets_tracker, []}
+      :mnesia -> {@mnesia_tracker, []}
       :pp -> {@pp_tracker, @pp_opts}
       _ -> raise RuntimeError, "Missing TRACKER env var := {ets|pp}"
     end

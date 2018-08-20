@@ -20,6 +20,18 @@ defmodule BreakingPP.ConfigTest do
     end
   end
 
+  test "It returns Mnesia Tracker if TRACKER is set to mnesia" do
+    with_mock System, [get_env: fn("TRACKER") -> "mnesia" end] do
+      assert BreakingPP.Tracker.Mnesia = BreakingPP.Config.tracker_module()
+    end
+  end
+
+  test "Mnesia Tracker has appropriate opts" do
+    with_mock System, [get_env: fn("TRACKER") -> "mnesia" end] do
+      assert {BreakingPP.Tracker.Mnesia, []} = BreakingPP.Config.tracker_mod_opts()
+    end
+  end
+
   test "It returns Phoenix Tracker if TRACKER is set to pp" do
     with_mock System, [get_env: fn("TRACKER") -> "PP" end] do
       assert BreakingPP.Tracker.PP = BreakingPP.Config.tracker_module()

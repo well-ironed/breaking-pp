@@ -15,7 +15,7 @@ defmodule BreakingPp.MixProject do
 
   def application do
     [
-      extra_applications: [:logger],
+      extra_applications: [:logger, :mnesia],
       mod: {BreakingPP.Application, []}
     ]
   end

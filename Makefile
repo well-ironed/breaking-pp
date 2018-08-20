@@ -1,5 +1,7 @@
 .PHONY: clean clean-propcheck deps docker prepare props rel test watch
 
+TRACKER ?= pp
+
 clean:
 	rm -rf _build
 
