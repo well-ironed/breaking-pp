@@ -1,69 +1,81 @@
 defmodule BreakingPP.Tracker.Mnesia do
   @behaviour Phoenix.Tracker
   @table :presence_mnesia
+  @server __MODULE__
 
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
+  def start_link(opts), do: GenServer.start_link(@server, opts, name: @server)
 
-  def handle_diff(_diff, state) do
-    {:ok, state}
-  end
+  def handle_diff(_diff, st), do: {:ok, st}
 
-  def session_ids do
-    {:atomic, ids} = :mnesia.transaction(fn ->
-      :mnesia.all_keys(@table)
-    end)
-    ids
-  end
+  def session_ids, do: GenServer.call(@server, :get_session_ids)
 
-  def register(pid, id) do
-    GenServer.call(__MODULE__, {:register, {id, pid}})
-  end
+  def register(pid, id), do: GenServer.call(@server, {:register, {id, pid}})
 
-  def sync_with(nodes) do
-    GenServer.cast(__MODULE__, {:sync_with, nodes})
-  end
+  def sync_with(nodes), do: GenServer.call(@server, {:sync_with, nodes})
 
   ## GenServer Callbacks
 
   def init(_opts) do
-    :ok = :mnesia.start()
-    :mnesia.change_config(:extra_db_nodes, Node.list())
-    :mnesia.create_table(@table, attributes: [:id, :pid])
-    :mnesia.add_table_copy(@table, Node.self(), :ram_copies)
-    {:ok, %{monitored: []}}
+    :mnesia.start()
+    {:ok, %{monitored: [], synced: false}}
   end
 
-  def handle_call({:register, {id, _} = session}, _from, state) do
-    IO.inspect(:mnesia.table_info(@table, :all), limit: 1000)
+  def handle_call(:get_session_ids, _from, %{synced: false}=st) do
+    {:reply, [], st}
+  end
+  def handle_call(:get_session_ids, _from, %{synced: true}=st) do
+    {:atomic, ids} = :mnesia.transaction(fn ->
+      :mnesia.all_keys(@table)
+    end)
+    {:reply, ids, st}
+  end
+
+  def handle_call({:register, {id, _} = session}, _from, %{synced: true}=st) do
     ^id = register_session(session)
-    {:reply, {:ok, id}, state}
+    {:reply, {:ok, id}, st}
   end
 
-  def handle_cast({:sync_with, _nodes}, state) do
-    # Enum.each(nodes, fn node->
-    #   :mnesia.change_config(:extra_db_nodes, [node])
-    #   :mnesia.add_table_copy(@table, node, :ram_copies)
-    # end)
-    {:noreply, state}
+  def handle_call({:sync_with, _nodes}, _, %{synced: true} = st) do
+    {:reply, :ok, st}
   end
 
-  def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
+  def handle_call({:sync_with, []}, _, %{synced: false} = st) do
+    :mnesia.create_table(@table, attributes: [:id, :pid], ram_copies: node())
+    {:reply, :ok, %{st | synced: true}}
+  end
+
+  def handle_call({:sync_with, nodes}, _, %{synced: false} = st) do
+    :global.trans(lock_id(), fn ->
+      active = MapSet.new(:mnesia.system_info(:running_db_nodes))
+      syncing = MapSet.new(nodes)
+      case active == syncing do
+        false ->
+          :mnesia.change_config(:extra_db_nodes, (nodes--[node()]))
+          :mnesia.create_table(@table, attributes: [:id, :pid],
+            ram_copies: nodes)
+        true ->
+          :ok
+      end
+    end, nodes, 100)
+    {:reply, :ok,  %{st | synced: true}}
+  end
+
+  def handle_info({:DOWN, _ref, :process, pid, _reason}, st) do
     {:atomic, _} = :mnesia.transaction(fn ->
       [obj] = :mnesia.match_object(@table, {@table, :'_', pid}, :read)
       :ok = :mnesia.delete_object(obj)
     end)
-    {:noreply, state}
+    {:noreply, st}
   end
 
   defp register_session({id, pid}) do
     _ref = Process.monitor(pid)
-    IO.inspect(:mnesia.table_info(@table, :all))
     {:atomic, _} = :mnesia.transaction(fn ->
       :ok = :mnesia.write({@table, id, pid})
     end)
     id
   end
+
+  defp lock_id(), do: {@server, self()}
 
 end

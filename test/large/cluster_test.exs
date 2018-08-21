@@ -9,9 +9,8 @@ defmodule BreakingPP.Test.ClusterTest do
     # when
     Cluster.connect(n1, ["1"])
     Cluster.connect(n2, ["2"])
-    # then 
-    assert eventually(fn -> (IO.inspect(Cluster.session_ids(n2))) 
-      == ["1", "2"] end)
+    # then
+    assert eventually(fn -> Cluster.session_ids(n2) == ["1", "2"] end)
     assert eventually(fn -> Cluster.session_ids(n1) == ["1", "2"] end)
   end
 
