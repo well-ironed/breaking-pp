@@ -11,15 +11,15 @@ defmodule BreakingPP.Test.ClusterPropTest do
   @tag :property
   property "sessions are eventually consistent in a cluster of 3 nodes",
     [:verbose, {:start_size, 1}, {:max_size, 50},
-     {:numtests, 1_000}, {:max_shrinks, 100}] do
+     {:numtests, 1_000}, {:max_shrinks, 1_000}] do
       forall cmds in commands(__MODULE__) do
         {history, state, result} = run_commands(__MODULE__, cmds)
         (result == :ok)
         |> when_fail(IO.puts """
-          History: #{inspect history, pretty: true}
-          State: #{inspect state, pretty: true}
-          Result: #{inspect result, pretty: true}
-          Sessions: #{inspect Model.Cluster.sessions(state), pretty: true}
+          History: #{inspect history, pretty: true, limit: :infinity}
+          State: #{inspect state, pretty: true, limit: :infinity}
+          Result: #{inspect result, pretty: true, limit: :infinity}
+          Sessions: #{inspect Model.Cluster.sessions(state), pretty: true, limit: :infinity}
           """)
       end
   end
@@ -117,10 +117,11 @@ defmodule BreakingPP.Test.ClusterPropTest do
     Model.Cluster.node_stopped?(s, node)
   end
   def precondition(s, {:call, __MODULE__, :stop_node, [node]}) do
-    Model.Cluster.node_started?(s, node)
+    Model.Cluster.node_started?(s, node) and
+    Enum.count(Model.Cluster.started_nodes(s)) > 1
   end
-  def precondition(s, {:call, __MODULE__, :disconnect_sessions, _}) do
-    Model.Cluster.sessions(s) != []
+  def precondition(s, {:call, __MODULE__, :disconnect_sessions, [sessions]}) do
+    (sessions -- Model.Cluster.sessions(s)) == []
   end
   def precondition(s, {:call, __MODULE__, :split, [node1, node2]}) do
     node1 != node2 and not Model.Cluster.split_between?(s, node1, node2)
@@ -128,9 +129,15 @@ defmodule BreakingPP.Test.ClusterPropTest do
   def precondition(s, {:call, __MODULE__, :join, [node1, node2]}) do
     Model.Cluster.split_between?(s, node1, node2)
   end
-  def precondition(_, {:call, __MODULE__, cmd, _})
-    when cmd in [:start_cluster, :connect_sessions] do
-    true
+  def precondition(st, {:call, __MODULE__, :connect_sessions, [sessions]}) do
+    Enum.all?(sessions, fn s ->
+      n = Model.Session.node(s)
+      Model.Cluster.node_started?(st, n)
+    end)
+  end
+  def precondition(st, {:call, __MODULE__, :start_cluster, _}) do
+    Model.Cluster.started_nodes(st) == [] and
+    Model.Cluster.stopped_nodes(st) == []
   end
 
   def next_state(s, _, {:call, __MODULE__, :start_cluster, [size]}) do
