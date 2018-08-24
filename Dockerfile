@@ -3,7 +3,7 @@ FROM ubuntu
 ENV LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
 RUN apt-get update && \
     apt-get -y install wget gnupg2 git make locales iputils-ping \
-               erlang-base erlang-tools erlang-inets unzip && \
+               erlang-base erlang-tools erlang-inets erlang-dev unzip && \
     locale-gen en_US en_US.UTF-8 && \
     cd /usr && wget https://github.com/elixir-lang/elixir/releases/download/v1.6.6/Precompiled.zip && unzip Precompiled.zip
 
