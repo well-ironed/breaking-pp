@@ -152,5 +152,35 @@ defmodule BreakingPP.CounterExamplesTest do
     end, 60, 1_000)
   end
 
+  test "counterexample 5" do
+    [n1, n2, n3] = Cluster.start(3)
+
+    Cluster.split(n2, n3)
+    assert eventually(fn -> 
+      Cluster.session_ids_on_nodes([n1, n2, n3]) == [[], [], []]
+    end)
+
+    Cluster.stop_node(n3)
+    assert eventually(fn -> 
+      Cluster.session_ids_on_nodes([n1, n2]) == [[], []]
+    end)
+
+    Cluster.start_node(n3)
+    assert eventually(fn -> 
+      Cluster.session_ids_on_nodes([n1, n2, n3]) == [[], [], []]
+    end)
+
+    Cluster.connect(n1, ids(101..110))
+    Cluster.connect(n2, ids(201..210))
+    Cluster.connect(n3, ids(301..310))
+
+    assert eventually(fn -> 
+      Cluster.session_ids_on_nodes([n1, n2, n3]) ==
+        [ids(101..110) ++ ids(201..210) ++ ids(301..310),
+         ids(101..110) ++ ids(201..210),
+         ids(101..110) ++ ids(301..310)]
+    end, 60, 1_000)
+  end
+
   defp ids(range), do: Enum.map(range, &Integer.to_string/1)
 end

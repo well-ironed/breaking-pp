@@ -35,6 +35,11 @@ fa_to_test = fn
     stop = "Cluster.stop_node(#{node.(n)})"
     {[stop, eventually.(c)], c}
 
+  {:start_node, [n]}, c ->
+    c = Model.Cluster.start_node(c, n)
+    start = "Cluster.start_node(#{node.(n)})"
+    {[start, eventually.(c)], c}
+
   {:split, [n1, n2]}, c ->
     c = Model.Cluster.split(c, n1, n2)
     {["Cluster.split(#{node.(n1)}, #{node.(n2)})", eventually.(c)], c}
