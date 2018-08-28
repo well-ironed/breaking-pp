@@ -24,9 +24,8 @@ defmodule BreakingPP.Tracker.Mnesia do
     {:reply, [], st}
   end
   def handle_call(:get_session_ids, _from, %{synced: true}=st) do
-    {:atomic, ids} = :mnesia.transaction(fn ->
-      :mnesia.all_keys(@table)
-    end)
+    ids = (:mnesia.dirty_select(@table, [{:'_', [], [:'$_']}])
+      |> Enum.map(&elem(&1,1)))
     {:reply, ids, st}
   end
 
@@ -61,18 +60,14 @@ defmodule BreakingPP.Tracker.Mnesia do
   end
 
   def handle_info({:DOWN, _ref, :process, pid, _reason}, st) do
-    {:atomic, _} = :mnesia.transaction(fn ->
-      [obj] = :mnesia.match_object(@table, {@table, :'_', pid}, :read)
-      :ok = :mnesia.delete_object(obj)
-    end)
+    [obj] = :mnesia.dirty_match_object(@table, {@table, :'_', pid})
+    :ok = :mnesia.dirty_delete_object(obj)
     {:noreply, st}
   end
 
   defp register_session({id, pid}) do
     _ref = Process.monitor(pid)
-    {:atomic, _} = :mnesia.transaction(fn ->
-      :ok = :mnesia.write({@table, id, pid})
-    end)
+    :ok = :mnesia.dirty_write({@table, id, pid})
     id
   end
 
