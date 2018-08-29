@@ -5,4 +5,6 @@ script:
 - make docker test
 env:
 - TRACKER=ets
+- TRACKER=mnesia
 - TRACKER=pp
+

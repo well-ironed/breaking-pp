@@ -17,6 +17,7 @@ defmodule BreakingPP.Tracker.Mnesia do
 
   def init(_opts) do
     :mnesia.start()
+    :net_kernel.monitor_nodes(true)
     {:ok, %{monitored: [], synced: false}}
   end
 
@@ -34,7 +35,7 @@ defmodule BreakingPP.Tracker.Mnesia do
     {:reply, {:ok, id}, st}
   end
 
-  def handle_call({:sync_with, _nodes}, _, %{synced: true} = st) do
+  def handle_call({:sync_with, nodes}, _, %{synced: true} = st) do
     {:reply, :ok, st}
   end
 
@@ -50,7 +51,7 @@ defmodule BreakingPP.Tracker.Mnesia do
       case active == syncing do
         false ->
           :mnesia.change_config(:extra_db_nodes, (nodes--[node()]))
-          :mnesia.create_table(@table, attributes: [:id, :pid],
+          :mnesia.create_table(@table, attributes: [:id, :pid, :node],
             ram_copies: nodes)
         true ->
           :ok
@@ -60,17 +61,45 @@ defmodule BreakingPP.Tracker.Mnesia do
   end
 
   def handle_info({:DOWN, _ref, :process, pid, _reason}, st) do
-    [obj] = :mnesia.dirty_match_object(@table, {@table, :'_', pid})
-    :ok = :mnesia.dirty_delete_object(obj)
+    :mnesia.dirty_match_object(@table, {@table, :'_', pid, :'_'})
+    |> Enum.each(&:mnesia.dirty_delete_object(&1))
+    {:noreply, st}
+  end
+
+  def handle_info({:nodedown, node}, st) do
+    :mnesia.dirty_match_object({@table, :'_', :'_', node})
+    |> Enum.each(&:mnesia.dirty_delete_object(&1))
+    {:noreply, st}
+  end
+
+  def handle_info({:nodeup, node}, st) do
+    :ok = send_my_state_to(node)
+    {:noreply, st}
+  end
+
+  def handle_info({:remote_entries, entries}, st) do
+    Enum.each(entries,
+      fn({_, id, pid, _}) -> register_session({id, pid}) end)
     {:noreply, st}
   end
 
   defp register_session({id, pid}) do
     _ref = Process.monitor(pid)
-    :ok = :mnesia.dirty_write({@table, id, pid})
+    :ok = :mnesia.dirty_write({@table, id, pid, node(pid)})
     id
   end
 
   defp lock_id(), do: {@server, self()}
+
+  defp send_my_state_to(other_node) do
+    try do
+      this_node = node()
+      entries = :mnesia.dirty_match_object({@table, :'_', :'_', this_node})
+      _ = send({@server, other_node}, {:remote_entries, entries})
+      :ok
+    catch _, _  ->
+        :ok
+    end
+  end
 
 end
