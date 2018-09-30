@@ -65,6 +65,7 @@ defmodule BreakingPP.Test.ClusterTest do
     end)
   end
 
+  @tag timeout: 120_000
   test "sessions are replicated again when split between nodes is healed" do
     # given
     [n1, n2] = Cluster.start(2)

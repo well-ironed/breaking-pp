@@ -1,7 +1,7 @@
 defmodule BreakingPP.Eventually do
   require Logger
 
-  def eventually(f, retries \\ 300, sleep \\ 100)
+  def eventually(f, retries \\ 30, sleep \\ 1_000)
   def eventually(_, 0, _), do: false
   def eventually(f, retries, sleep) do
     result = try do
