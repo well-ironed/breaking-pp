@@ -5,11 +5,11 @@ defmodule BreakingPP.Test.ClusterPropTest do
   import BreakingPP.Eventually
   alias BreakingPP.{RealWorld, Model}
 
-  @cluster_size 3
+  @cluster_size 7
 
   @tag timeout: :infinity
   @tag :property
-  property "sessions are eventually consistent in a cluster of 3 nodes",
+  property "sessions are eventually consistent in a cluster of 7 nodes",
     [:verbose, {:start_size, 1}, {:max_size, 50},
      {:numtests, 1_000}, {:max_shrinks, 1_000}] do
       forall cmds in commands(__MODULE__) do
@@ -20,6 +20,10 @@ defmodule BreakingPP.Test.ClusterPropTest do
           State: #{inspect state, pretty: true, limit: :infinity}
           Result: #{inspect result, pretty: true, limit: :infinity}
           Sessions: #{inspect Model.Cluster.sessions(state), pretty: true, limit: :infinity}
+          Sessions on nodes: #{inspect(
+             Model.Cluster.started_nodes(state)
+             |> Enum.map(&Model.Node.id/1)
+             |> RealWorld.Cluster.session_ids_on_nodes(), pretty: true, limit: :infinity)}
           """)
       end
   end
