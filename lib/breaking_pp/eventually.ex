@@ -1,8 +1,11 @@
 defmodule BreakingPP.Eventually do
   require Logger
 
-  def eventually(f, retries \\ 30, sleep \\ 1_000)
-  def eventually(_, 0, _), do: false
+  def eventually(f, retries \\ 120, sleep \\ 1_000)
+  def eventually(f, 0, _) do
+    Logger.error("Retries exceeded while waiting for: #{inspect f}")
+    false
+  end
   def eventually(f, retries, sleep) do
     result = try do
       f.()

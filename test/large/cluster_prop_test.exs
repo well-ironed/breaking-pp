@@ -173,7 +173,7 @@ defmodule BreakingPP.Test.ClusterPropTest do
   end
   def postcondition(st, {:call, __MODULE__, :stop_node, [node]}, _) do
     eventually(fn ->
-      sessions_in_real_world_are_equal_to(Model.Cluster.stop_node(st, node))
+        sessions_in_real_world_are_equal_to(Model.Cluster.stop_node(st, node))
     end)
   end
   def postcondition(st, {:call, __MODULE__, :connect_sessions, [ss]},_) do
@@ -204,10 +204,14 @@ defmodule BreakingPP.Test.ClusterPropTest do
     Model.Cluster.started_nodes(cluster)
     |> Enum.all?(fn n ->
       session_ids_in_real_world =
-        Model.Node.id(n) |> RealWorld.Cluster.session_ids()
+        Model.Node.id(n)
+        |> RealWorld.Cluster.session_ids()
+        |> Enum.sort()
       session_ids_in_model =
-        Enum.map(Model.Cluster.sessions(cluster, n), &Model.Session.id/1)
-      Enum.sort(session_ids_in_real_world) == Enum.sort(session_ids_in_model)
+        Model.Cluster.sessions(cluster, n)
+        |> Enum.map(&Model.Session.id/1)
+        |> Enum.sort()
+      session_ids_in_real_world == session_ids_in_model
     end)
   end
 
@@ -218,8 +222,10 @@ defmodule BreakingPP.Test.ClusterPropTest do
   end
 
   defp session(st) do
-    let {node, id} <- {running_node(st), session_id()} do
-      Model.Session.new(node, id)
+    let node <- running_node(st) do
+      let id <- session_id(node) do
+        Model.Session.new(node, id)
+      end
     end
   end
 
@@ -229,8 +235,11 @@ defmodule BreakingPP.Test.ClusterPropTest do
     end
   end
 
-  defp session_id do
-    let _ <- integer(), do: "#{System.unique_integer([:monotonic, :positive])}"
+  defp session_id(node) do
+    node_prefix = Model.Node.id(node) * 1_000_000
+    let _ <- integer() do
+      "#{node_prefix + System.unique_integer([:monotonic, :positive])}"
+    end
   end
 
   defp running_node(state), do: oneof(Model.Cluster.started_nodes(state))
