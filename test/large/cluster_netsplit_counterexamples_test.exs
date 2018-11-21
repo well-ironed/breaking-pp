@@ -1,68 +1,21 @@
-defmodule BreakingPP.CounterExamplesTest do
+defmodule BreakingPP.ClusterNetsplitCounterExamplesTest do
+  @moduledoc """
+  This is a set of found counterexamples related to starting and stopping nodes in the cluster
+  and issues with synchronizing state in the cluster after these events.
+
+  Counterexamples from this module have been fixed in this squash-merge commit:
+  [cc6d675](https://github.com/phoenixframework/phoenix_pubsub/commit/cc6d675269d304d2f8015be5d285e42631b421bf).
+  """
   use ExUnit.Case
   import BreakingPP.Eventually
   alias BreakingPP.RealWorld.Cluster
 
-  @moduletag timeout: 250_000_000
+  @moduletag timeout: 300_000
 
-  test "counterexample 1" do
-    [n1, n2, n3] = Cluster.start(3)
-
-    Cluster.connect(n1, ["101"])
-    Cluster.connect(n2, ids(201..252))
-    assert eventually(fn ->
-      Cluster.session_ids_on_nodes([n1, n2, n3]) ==
-        List.duplicate(["101"] ++ ids(201..252), 3)
-    end)
-
-    Cluster.stop_node(n3)
-    assert eventually(fn ->
-      Cluster.session_ids_on_nodes([n1, n2]) ==
-        List.duplicate(["101"] ++ ids(201..252), 2)
-    end)
-
-    Cluster.disconnect(ids(201..251))
-    assert eventually(fn ->
-      Cluster.session_ids_on_nodes([n1, n2]) == [["101", "252"], ["101", "252"]]
-    end)
-
-    Cluster.stop_node(n1)
-    assert eventually(fn ->
-      Cluster.session_ids_on_nodes([n2]) == [["252"]]
-    end)
-
-    Cluster.start_node(n3)
-    assert eventually(fn ->
-      Cluster.session_ids_on_nodes([n2, n3]) == [["252"], ["252"]]
-    end, 60, 1_000)
-  end
-
-  test "counterexample 2" do
-    [n1, n2, n3] = Cluster.start(3)
-
-    Cluster.stop_node(n1)
-    assert eventually(fn ->
-      Cluster.session_ids_on_nodes([n2, n3]) == [[], []]
-    end)
-
-    Cluster.connect(n2, ids(201..270))
-    Cluster.connect(n3, ids(301..383))
-    assert eventually(fn ->
-      Cluster.session_ids_on_nodes([n2, n3]) == 
-        List.duplicate(ids(201..270) ++ ids(301..383), 2)
-    end)
-
-    Cluster.stop_node(n3)
-    assert eventually(fn ->
-      Cluster.session_ids_on_nodes([n2]) == [ids(201..270)]
-    end)
-
-    Cluster.start_node(n1)
-    assert eventually(fn ->
-      Cluster.session_ids_on_nodes([n1, n2]) == List.duplicate(ids(201..270), 2)
-    end, 60, 1_000)
-  end
-
+  @doc """
+  Session joins were observed via netsplit, but removes were not.
+  Fixed with [b612985](https://github.com/distributed-owls/phoenix_pubsub/commit/b612985a276ccf8fffda6cc55d7aa2eb0cd503da).
+  """
   test "counterexample 3" do
     [n1, n2, n3] = Cluster.start(3)
 
@@ -94,6 +47,11 @@ defmodule BreakingPP.CounterExamplesTest do
     end)
   end
 
+  @doc """
+  Non-contiguous deltas could have been merged into one.
+  I.e. merge([a,b], [c,d]) where c > d resulted in [a,d].
+  Fixed with [57dd84e](https://github.com/distributed-owls/phoenix_pubsub/commit/57dd84eacb3721e7bec96843b2c22258387194a0).
+  """
   test "counterexample 4" do
     [n1, n2, n3] = Cluster.start(3)
 
@@ -152,6 +110,12 @@ defmodule BreakingPP.CounterExamplesTest do
     end, 60, 1_000)
   end
 
+  @doc """
+  Automatic attempt to connect to another node inside Erlang VM when sending messages
+  was causing the Tracker processes to stall.
+
+  Fixed via `kernel` configuration with [18f310a](https://github.com/distributed-owls/breaking-pp/commit/18f310a8200fa965325b1e16633cc00b4071fbef).
+  """
   test "counterexample 5" do
     [n1, n2, n3] = Cluster.start(3)
 
@@ -182,6 +146,10 @@ defmodule BreakingPP.CounterExamplesTest do
     end, 60, 1_000)
   end
 
+  @doc """
+  Not pruning context together with clouds when extracting a delta caused incorrect cluster sync.
+  Fixed with [b0a913c](https://github.com/distributed-owls/phoenix_pubsub/commit/b0a913ca86e658b023014cd18576124e68c3a6cd).
+  """
   test "counterexample 6" do
     [n1, n2, n3, n4, n5, n6, n7] = Cluster.start(7)
 
