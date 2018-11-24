@@ -19,7 +19,7 @@ defmodule BreakingPP.Application do
 
   defp start_endpoints do
     dispatch = :cowboy_router.compile([
-      {:"_", [
+      {:_, [
           {"/status", BreakingPP.StatusHandler, []},
           {"/sessions/:id", BreakingPP.SessionsHandler, []},
           {"/sessions", BreakingPP.SessionsListHandler, []}]}
