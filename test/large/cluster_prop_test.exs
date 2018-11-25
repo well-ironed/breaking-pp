@@ -15,6 +15,7 @@ defmodule BreakingPP.Test.ClusterPropTest do
       forall cmds in commands(__MODULE__) do
         {history, state, result} = run_commands(__MODULE__, cmds)
         (result == :ok)
+        |> collect(session_count_range(state, 100))
         |> when_fail(IO.puts """
           History: #{inspect history, pretty: true, limit: :infinity}
           State: #{inspect state, pretty: true, limit: :infinity}
@@ -265,4 +266,12 @@ defmodule BreakingPP.Test.ClusterPropTest do
 
   defp running_node(state), do: oneof(Model.Cluster.started_nodes(state))
   defp stopped_node(state), do: oneof(Model.Cluster.stopped_nodes(state))
+
+  defp session_count_range(state, range_size) do
+    session_count = Model.Cluster.sessions(state) |> Enum.count
+    lower_bound = div(session_count, range_size) * range_size
+    upper_bound = lower_bound + range_size - 1
+    {lower_bound, upper_bound}
+  end
+
 end
