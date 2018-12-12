@@ -8,19 +8,21 @@ just_fas = fn {:set, _, {:call, _, f, a}} -> {f, a} end
 node = fn n -> "n#{Model.Node.id(n)}" end
 nodes = fn n -> Enum.map(1..n, &("n#{&1}")) |> Enum.join(", ") end
 
-eventually = fn c ->
-  started_nodes = Model.Cluster.started_nodes(c)
-  started_nodes_vars = Enum.map(started_nodes, node) |> Enum.join(", ")
-  ids_on_started_nodes =
+eventually = fn
+  c, :verify ->
+    started_nodes = Model.Cluster.started_nodes(c)
+    started_nodes_vars = Enum.map(started_nodes, node) |> Enum.join(", ")
+    ids_on_started_nodes =
     Enum.map(started_nodes, fn n -> Model.Cluster.sessions(c, n) end)
     |> Enum.map(fn sessions -> Enum.map(sessions, &Model.Session.id/1) end)
     |> Enum.map(fn ids -> Enum.sort(ids) end)
     """
     assert eventually(fn -> 
-      Cluster.session_ids_on_nodes([#{started_nodes_vars}]) ==
-        #{inspect ids_on_started_nodes, limit: :infinity}
+    Cluster.session_ids_on_nodes([#{started_nodes_vars}]) ==
+    #{inspect ids_on_started_nodes, limit: :infinity}
     end)
     """
+  _, :dont_verify -> ""
 end
 
 fa_to_test = fn 
@@ -30,41 +32,41 @@ fa_to_test = fn
     end)
     {["[#{nodes.(size)}] = Cluster.start(#{size})"], c}
 
-  {:stop_node, [n]}, c ->
+  {:stop_node, [verify?, n]}, c ->
     c = Model.Cluster.stop_node(c, n)
     stop = "Cluster.stop_node(#{node.(n)})"
-    {[stop, eventually.(c)], c}
+    {[stop, eventually.(c, verify?)], c}
 
-  {:start_node, [n]}, c ->
+  {:start_node, [verify?, n]}, c ->
     c = Model.Cluster.start_node(c, n)
     start = "Cluster.start_node(#{node.(n)})"
-    {[start, eventually.(c)], c}
+    {[start, eventually.(c, verify?)], c}
 
-  {:split, [n1, n2]}, c ->
+  {:split, [verify?, n1, n2]}, c ->
     c = Model.Cluster.split(c, n1, n2)
-    {["Cluster.split(#{node.(n1)}, #{node.(n2)})", eventually.(c)], c}
+    {["Cluster.split(#{node.(n1)}, #{node.(n2)})", eventually.(c, verify?)], c}
 
-  {:join, [n1, n2]}, c ->
+  {:join, [verify?, n1, n2]}, c ->
     c = Model.Cluster.join(c, n1, n2)
-    {["Cluster.join(#{node.(n1)}, #{node.(n2)})", eventually.(c)], c}
+    {["Cluster.join(#{node.(n1)}, #{node.(n2)})", eventually.(c, verify?)], c}
 
-  {:connect_sessions, [sessions]}, c ->
+  {:connect_sessions, [verify?, sessions]}, c ->
     c = Model.Cluster.add_sessions(c, sessions)
     connects = Enum.group_by(sessions, &Model.Session.node/1)
     |> Enum.map(fn {n, ss} ->
       session_ids = Enum.map(ss, &Model.Session.id/1)
       "Cluster.connect(#{node.(n)}, #{inspect session_ids, limit: :infinity})"
     end)
-    {connects ++ [eventually.(c)], c}
+    {connects ++ [eventually.(c, verify?)], c}
 
-  {:disconnect_sessions, [sessions]}, c ->
+  {:disconnect_sessions, [verify?, sessions]}, c ->
     c = Model.Cluster.remove_sessions(c, sessions)
     disconnects = Enum.group_by(sessions, &Model.Session.node/1)
     |> Enum.map(fn {n, ss} ->
       session_ids = Enum.map(ss, &Model.Session.id/1)
       "Cluster.disconnect(#{inspect session_ids, limit: :infinity}) ##{node.(n)}"
     end)
-    {disconnects ++ [eventually.(c)], c}
+    {disconnects ++ [eventually.(c, verify?)], c}
     
 end
     
