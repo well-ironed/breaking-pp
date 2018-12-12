@@ -8,7 +8,10 @@ defmodule BreakingPP.RealWorld.Cluster do
     Sessions.new()
     {_, 0} = cmd(["stop_cluster"])
     {_, 0} = cmd(["create_network"])
-    Enum.map(1..size, fn i -> create_node(i, size) end)
+
+    1..size
+    |> Enum.map(&Task.async(fn -> create_node(&1, size) end))
+    |> Enum.map(&Task.await(&1, 60_000))
   end
 
   defp create_node(node_id, cluster_size) do
