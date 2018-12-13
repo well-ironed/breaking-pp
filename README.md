@@ -12,10 +12,10 @@ make docker
 
 Run basic tests and extracted counterexamples:
 ```bash
-make test
+TRACKER=pp make test
 ```
 
 Run property tests. Currently, you can customize number of tests in the test file:
 ```bash
-make props
+TRACKER=pp make props
 ```
